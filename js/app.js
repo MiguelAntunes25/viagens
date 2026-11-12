@@ -56,7 +56,33 @@ const membro = (id) => S.b.members.find((m) => m.id === id);
 const pessoas = () => S.b.members;
 
 // ---------- infra de ecrã ----------
-function render(html) { $app.innerHTML = html; window.scrollTo(0, 0); }
+const ehPC = () => matchMedia('(min-width: 1000px)').matches;
+function lateral() {
+  const b = S.b, id = S.tripId, p = location.hash.replace(/^#\/?/, '').split('/');
+  const v = p[2] || 'dia';
+  const ativo = ['dia', 'a'].includes(v) ? 'dia' : ['ranking', 'reservas', 'resumo', 'hoteis', 'transportes'].includes(v) ? v : 'mais';
+  const diaAtual = Number(sessionStorage.getItem('ultimoDia:' + id)) || diaDeHoje() || 1;
+  const rk = b.rankings.find((r) => r.is_primary) || b.rankings[0];
+  const it = [['dia', 'Dia', `#/v/${id}/dia/${diaAtual}`], ['resumo', 'Resumo'], ['hoteis', 'Hotéis'], ['transportes', 'Transportes'],
+    ...(rk ? [['ranking', 'Ranking', `#/v/${id}/ranking/${rk.id}`]] : []), ...(b.isOwner ? [['reservas', 'Reservas']] : []), ['mais', 'Mais']];
+  return `<aside class="lateral" aria-label="Navegação">
+    <a class="lat-marca" href="#/">${I.mapa}<span>Roteiros</span></a>
+    <div><h2>${esc(b.trip.title)}</h2><p>${intervalo(b.trip.start_date, b.trip.end_date)}</p></div>
+    <nav class="lat-nav">${it.map(([k, t, h]) => `<a href="${h || `#/v/${id}/${k}`}" ${k === ativo ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
+    <div class="lat-dias"><span>Dias</span>${b.days.map((d) => `<a href="#/v/${id}/dia/${d.day_number}" ${ativo === 'dia' && d.day_number === diaAtual ? 'aria-current="date"' : ''}><b>${d.day_number}</b>${esc(d.city || '')}</a>`).join('')}</div>
+    <button class="lat-tema" data-act="tema">${temaTxt()}</button></aside>`;
+}
+function render(html) {
+  const naViagem = S.b && /^#\/v\//.test(location.hash);
+  document.body.classList.toggle('pc', ehPC() && !!naViagem);
+  $app.innerHTML = ehPC() && naViagem ? `<div class="pc-app">${lateral()}<div class="pc-main">${html}</div></div>` : html;
+  window.scrollTo(0, 0);
+}
+// aspeto: automático, dia ou noite
+const temaAtual = () => localStorage.getItem('tema') || 'auto';
+const temaTxt = () => ({ auto: '◐ Aspeto: automático', light: '☀ Aspeto: dia', dark: '☾ Aspeto: noite' })[temaAtual()];
+function aplicarTema() { const t = temaAtual(); if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
+aplicarTema();
 function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.role = 'status'; t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 3200);
@@ -135,7 +161,7 @@ async function vViagens() {
 }
 
 // ---------- ecrã do dia ----------
-async function vDia(n) {
+async function vDia(n, selId) {
   const b = S.b; const day = b.days.find((d) => d.day_number === n) || b.days[0]; if (!day) return vResumo();
   sessionStorage.setItem('ultimoDia:' + S.tripId, day.day_number);
   const { lista, grupos, escolhida, labels } = atividadesDoDia(day);
@@ -150,10 +176,13 @@ async function vDia(n) {
   const rota = mapsRouteLink(lista.filter((a) => a.kind !== 'transport' && (a.lat != null || a.maps_query)));
   const prev = b.days.find((d) => d.day_number === day.day_number - 1), next = b.days.find((d) => d.day_number === day.day_number + 1);
 
+  const pc = ehPC();
+  const sel = selId || atual?.id || lista.find((a) => a.wiki_title)?.id || lista[0]?.id;
+  const painel = pc && sel ? `<aside class="detalhe ficha ${selId ? 'aberto' : ''}" aria-label="Ficha da atividade">${await vAtividade(sel, true)}</aside>` : '';
   const bilhete = (a) => {
     if (a._r) return `<a class="bil" href="#/v/${S.tripId}/transportes#r-${a._r.id}"><span class="bil-c"><span class="bil-h">${hhmm(a.start_time) || '—'}</span><span class="bil-d">reserva</span></span><span class="bil-c2"><span class="bil-t">${esc(a.title)}</span><span class="bil-s">${esc(a.short || 'Ver reserva')}</span></span></a>`;
     const pos = rk.map[a.ext_key]; const nb = bilhetes({ activity_id: a.id }).length; const ag2 = a === atual;
-    return `<div class="bil-w"><a class="bil ${ag2 ? 'agora' : ''}" href="#/v/${S.tripId}/a/${a.id}">
+    return `<div class="bil-w"><a class="bil ${ag2 ? 'agora' : ''} ${pc && a.id === sel ? 'sel' : ''}" href="#/v/${S.tripId}/a/${a.id}">
       <span class="bil-c"><span class="bil-h">${hhmm(a.start_time) || '—'}</span><span class="bil-d">${dur(a.duration_min)}</span></span>
       <span class="bil-c2">${ag2 ? '<span class="bil-ag">A decorrer</span>' : ''}<span class="bil-t">${esc(a.title)}</span>
       ${a.short ? `<span class="bil-s">${esc(a.short)}</span>` : ''}
@@ -161,7 +190,7 @@ async function vDia(n) {
       ${pos ? `<a class="rk" href="#/v/${S.tripId}/ranking/${rk.r.id}/${a.ext_key}" aria-label="${pos}.º lugar em ${rk.total} no ranking, ver ranking"><span>${I.estrela}${pos} em ${rk.total}</span></a>` : ''}</div>`;
   };
 
-  render(`<main class="dia">
+  render(`<main class="dia"><div class="dia-col">
     <div class="foto-dia" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${credito(fotoExt)}${!day.photo_path && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
     <header class="cab">
       <div class="cab-l">
@@ -179,12 +208,12 @@ async function vDia(n) {
         ${b.isOwner && !b.trip.info?.escolhas?.[day.ext_key] ? `<button class="b-link" data-act="fixar-opcao" data-dia="${day.ext_key}" data-g="${escolhida}">Decidir: ficar com a ${esc(labels[escolhida].split('·')[0].trim())}</button>` : ''}` : ''}
       ${day.intro ? `<details class="intro"><summary>Sobre o dia</summary><p>${esc(day.intro).replace(/\n/g, '<br>')}</p>${day.rain_alt ? `<p class="chuva"><strong>Se chover:</strong> ${esc(day.rain_alt)}</p>` : ''}</details>` : ''}
       <div class="bils">${itens.map(bilhete).join('') || '<p class="vazio">Sem atividades neste dia.</p>'}</div>
-    </section>
+    </section></div>${painel}
     ${nav('dia')}</main>`);
 }
 
 // ---------- ficha da atividade ----------
-async function vAtividade(id) {
+async function vAtividade(id, comoPainel = false) {
   const b = S.b; const a = b.activities.find((x) => x.id === id); if (!a) return vDia(1);
   const day = b.days.find((d) => d.id === a.day_id); const rk = rankPrincipal(); const pos = rk.map[a.ext_key];
   const outros = b.rankingItems.filter((i) => (i.activity_ext_keys || []).includes(a.ext_key) && i.ranking_id !== rk.r?.id)
@@ -193,7 +222,7 @@ async function vAtividade(id) {
   const urls = await urlsAssinados('photos', fotos.filter((p) => p.path).map((p) => p.path));
   const tk = bilhetes({ activity_id: a.id }); const rem = b.reminders.filter((r) => r.activity_id === a.id);
   const temLocal = a.lat != null || a.maps_query || a.place_name;
-  render(`<main class="ficha">
+  const html = (`
     <div class="galeria" id="galeria">${fotos.length ? fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}${b.isOwner ? `<button class="g-del" data-act="apagar-foto" data-id="${p.id}" data-path="${esc(p.path || '')}" aria-label="Apagar foto">✕</button>` : ''}</div>`).join('') : '<div class="g-foto g-vazia"></div>'}</div>
     <div class="vinheta-f"></div>
     <div class="ficha-top"><a class="b-ic esc" href="#/v/${S.tripId}/dia/${day?.day_number || 1}" aria-label="Voltar ao dia">${I.voltar}</a>
@@ -222,7 +251,9 @@ async function vAtividade(id) {
         <div class="lemb">${rem.map((r) => `<span class="lb">${I.sino}${offsetTxt(r.offset_minutes)}${b.isOwner ? `<button data-act="apagar-lembrete" data-id="${r.id}" aria-label="Apagar lembrete">✕</button>` : ''}</span>`).join('') || '<span class="vazio">Sem lembretes.</span>'}</div>
         ${a.start_time && day ? `<button class="b-sec" data-act="calendario" data-id="${a.id}">Adicionar ao calendário</button>` : ''}</div>
       ${b.isOwner ? `<button class="b-link centro" data-act="editar-ativ" data-id="${a.id}">Editar esta atividade</button>` : ''}
-    </section></main>`);
+    </section>`);
+  if (comoPainel) return html.replace(`aria-label="Voltar ao dia">${I.voltar}`, 'aria-label="Fechar a ficha">✕');
+  render(`<main class="ficha">${html}</main>`);
 }
 
 // ---------- resumo ----------
@@ -298,6 +329,7 @@ function vMais() {
       ${it(`#/v/${S.tripId}/participantes`, 'Participantes', `${b.members.length}`)}
       ${it(`#/v/${S.tripId}/exportar`, 'Exportar roteiro (PDF)')}
       <button class="menu-i" data-act="offline"><span>Guardar bilhetes neste telemóvel</span><small>para usar sem rede</small>${I.seg}</button>
+      <button class="menu-i" data-act="tema"><span>${temaTxt()}</span><small>tocar para mudar</small>${I.seg}</button>
       ${it('#/instalar', 'Instalar no telemóvel')}
       ${it('#/', 'Todas as viagens')}
       <button class="menu-i" data-act="sair"><span>Sair</span>${I.seg}</button>
@@ -465,13 +497,14 @@ document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-act]'); if (!el) return;
   const a = el.dataset.act, id = el.dataset.id;
   try {
-    if (a === 'sair') { await sb.auth.signOut(); localStorage.clear(); location.hash = '#/login'; return; }
+    if (a === 'sair') { await sb.auth.signOut(); const t = localStorage.getItem('tema'); localStorage.clear(); if (t) localStorage.setItem('tema', t); location.hash = '#/login'; return; }
     if (a === 'esqueci') { const email = document.querySelector('[name=email]').value; if (!email) return toast('Escreve primeiro o teu email.');
       await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname }); return toast('Enviámos um email para definires nova password.'); }
     if (a === 'criar-conta') { const email = document.querySelector('[name=email]').value, password = document.querySelector('[name=password]').value;
       if (!email || password.length < 8) return toast('Escreve o email e uma password com pelo menos 8 caracteres.');
       const { error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
       return toast(error ? error.message : 'Conta criada. Confirma o email que te enviámos e depois entra.'); }
+    if (a === 'tema') { const seq = { auto: 'light', light: 'dark', dark: 'auto' }; localStorage.setItem('tema', seq[temaAtual()]); aplicarTema(); return router(); }
     if (a === 'nova-viagem') return fNovaViagem();
     if (a === 'opcao') { sessionStorage.setItem('opcao:' + el.dataset.dia, el.dataset.g); return router(); }
     if (a === 'fixar-opcao') { const info = { ...(S.b.trip.info || {}) }; info.escolhas = { ...(info.escolhas || {}), [el.dataset.dia]: el.dataset.g };
@@ -525,12 +558,16 @@ async function router() {
   const v = parts[2];
   if (!v) { const n = diaDeHoje(); location.replace(n ? `#/v/${id}/dia/${n}` : `#/v/${id}/resumo`); return; }
   const m = {
-    dia: () => vDia(Number(parts[3]) || 1), a: () => vAtividade(parts[3]), resumo: vResumo, hoteis: vHoteis, transportes: vTransportes, mais: vMais,
+    dia: () => vDia(Number(parts[3]) || 1),
+    a: () => { const at = S.b.activities.find((x) => x.id === parts[3]); const d = at && S.b.days.find((x) => x.id === at.day_id);
+      return ehPC() && d ? vDia(d.day_number, at.id) : vAtividade(parts[3]); }, resumo: vResumo, hoteis: vHoteis, transportes: vTransportes, mais: vMais,
     reservas: vReservas, checklist: vChecklist, ranking: () => vRanking(parts[3], parts[4]), secao: () => vSecao(parts[3]), participantes: vParticipantes, exportar: vExportar,
   };
   return (m[v] || vResumo)();
 }
 window.addEventListener('hashchange', router);
+matchMedia('(min-width: 1000px)').addEventListener('change', () => router());
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => router());
 sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') vLogin('nova'); });
 // atualizar o "agora" no ecrã do dia a cada minuto
 setInterval(() => { if (/\/dia\//.test(location.hash) && !document.querySelector('.folha-fundo')) router(); }, 60000);
