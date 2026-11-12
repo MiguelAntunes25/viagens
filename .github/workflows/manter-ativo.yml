@@ -1,0 +1,14 @@
+name: Manter Supabase ativo
+on:
+  schedule:
+    - cron: '0 9 */3 * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sinal de vida
+        run: |
+          curl -sf -X POST "https://qvexazvqjpxtbkajdzdr.supabase.co/rest/v1/rpc/keepalive" \
+            -H "apikey: sb_publishable_3zPpKRTx717WoCaVk0XNqA_iM2aaoeQ" \
+            -H "Content-Type: application/json" -d '{}'
