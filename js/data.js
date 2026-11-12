@@ -90,6 +90,27 @@ export async function abrirBilhete(path) {
   return r ? URL.createObjectURL(await r.blob()) : null;
 }
 
+// fotos livres da Wikimedia Commons (a partir do artigo da Wikipédia de cada local)
+const semHtml = (s) => String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+export async function fotoWiki(titulo) {
+  const k = 'wiki:' + titulo;
+  try { const c = localStorage.getItem(k); if (c) return JSON.parse(c); } catch { /* sem cache */ }
+  const r1 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=name&titles=${encodeURIComponent(titulo)}`).then((r) => r.json());
+  const nome = Object.values(r1?.query?.pages || {})[0]?.pageimage;
+  let res = null;
+  if (nome) {
+    const r2 = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1280&titles=${encodeURIComponent('File:' + nome)}`).then((r) => r.json());
+    const p = Object.values(r2?.query?.pages || {})[0]; const ii = p?.imageinfo?.[0];
+    const lic = ii?.extmetadata?.LicenseShortName?.value || '';
+    // só imagens alojadas na Commons e com licença livre (exclui imagens "fair use" da Wikipédia)
+    if (ii && p.missing === undefined && lic && !/fair use|non-free/i.test(lic)) {
+      res = { url: ii.thumburl || ii.url, credit: `${semHtml(ii.extmetadata?.Artist?.value) || 'Autor na Wikimedia Commons'} · ${lic}`, source: ii.descriptionurl };
+    }
+  }
+  try { localStorage.setItem(k, JSON.stringify(res)); } catch { /* cheio */ }
+  return res;
+}
+
 export async function convidar(trip_id, email, display_name) {
   const { data, error } = await sb.functions.invoke('convidar', {
     body: { trip_id, email, display_name, redirect_to: location.origin + location.pathname },

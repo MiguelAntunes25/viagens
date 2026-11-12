@@ -1,4 +1,4 @@
-import { sb, sessao, listarViagens, carregarViagem, urlsAssinados, enviarFicheiro, apagarFicheiro, guardarBilhetesOffline, abrirBilhete, convidar, entradaEspecial } from './data.js';
+import { sb, sessao, listarViagens, carregarViagem, urlsAssinados, enviarFicheiro, apagarFicheiro, guardarBilhetesOffline, abrirBilhete, convidar, entradaEspecial, fotoWiki } from './data.js';
 import { esc, hhmm, dur, dataLonga, dataCurta, intervalo, noites, hojeEm, agoraMin, toMin, mapsDirLink, mapsPlaceLink, mapsQueryLink, mapsRouteLink, comprimir, ics, descarregar, OFFSETS, offsetTxt, KIND_LABEL } from './util.js';
 
 const $app = document.getElementById('app');
@@ -77,6 +77,26 @@ const campo = (n, l, v = '', t = 'text', extra = '') => `<label class="campo"><s
 const area = (n, l, v = '') => `<label class="campo"><span>${l}</span><textarea name="${n}" rows="3">${esc(v)}</textarea></label>`;
 const escolha = (n, l, ops, v) => `<label class="campo"><span>${l}</span><select name="${n}">${ops.map(([k, t]) => `<option value="${esc(k)}" ${String(k) === String(v ?? '') ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
 
+async function completarFotos() {
+  const b = S.b; if (!b?.isOwner || b.offline || sessionStorage.getItem('fotos:' + S.tripId)) return;
+  sessionStorage.setItem('fotos:' + S.tripId, '1');
+  const falta = b.activities.filter((a) => a.wiki_title && !b.photos.some((p) => p.activity_id === a.id && p.external_url));
+  if (!falta.length) return;
+  const cache = {}; const novas = [];
+  for (const a of falta) {
+    try { cache[a.wiki_title] ??= await fotoWiki(a.wiki_title); } catch { cache[a.wiki_title] = null; }
+    const f = cache[a.wiki_title]; if (f) novas.push({ trip_id: S.tripId, activity_id: a.id, external_url: f.url, credit: f.credit, source_url: f.source });
+  }
+  if (novas.length) { const { error } = await sb.from('activity_photos').insert(novas); if (!error) await recarregar(); }
+}
+const credito = (p) => p?.credit ? `<a class="credito" href="${esc(p.source_url || '#')}" target="_blank" rel="noopener">Foto: ${esc(p.credit)}</a>` : '';
+function fotoDoDia(day) {
+  const rk = rankPrincipal(); const acts = atividadesDoDia(day).lista;
+  const comFoto = acts.map((a) => ({ a, p: S.b.photos.find((p) => p.activity_id === a.id && p.external_url) })).filter((x) => x.p);
+  comFoto.sort((x, y) => (rk.map[x.a.ext_key] || 99) - (rk.map[y.a.ext_key] || 99));
+  return comFoto[0]?.p || null;
+}
+
 async function recarregar() { S.b = await carregarViagem(S.tripId); router(); }
 async function op(p, ok) { const { error } = await p; if (error) throw error; if (ok) toast(ok); await recarregar(); }
 
@@ -95,7 +115,7 @@ function vLogin(modo = 'entrar') {
   document.getElementById('f-login').addEventListener('submit', async (e) => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
     const r = modo === 'nova' ? await sb.auth.updateUser({ password: f.password }) : await sb.auth.signInWithPassword({ email: f.email, password: f.password });
-    if (r.error) return toast(modo === 'nova' ? 'Não foi possível guardar a password.' : 'Email ou password incorretos.');
+    if (r.error) return toast(modo === 'nova' ? 'Não foi possível guardar a password.' : /confirm/i.test(r.error.message) ? 'Falta confirmar o email: abre o email que te enviámos.' : 'Email ou password incorretos.');
     location.hash = '#/'; router();
   });
 }
@@ -124,8 +144,9 @@ async function vDia(n) {
   const hotel = hotelNa(day.date); const rk = rankPrincipal();
   const ehHoje = hojeEm(tz()) === day.date; const ag = agoraMin(tz());
   const atual = ehHoje ? lista.find((a) => { const s = toMin(a.start_time); return s != null && s <= ag && ag < s + (a.duration_min || 30); }) : null;
-  let foto = '';
+  let foto = '', fotoExt = null;
   if (day.photo_path) foto = (await urlsAssinados('photos', [day.photo_path]))[day.photo_path] || '';
+  else { fotoExt = fotoDoDia(day); foto = fotoExt?.external_url || ''; }
   const rota = mapsRouteLink(lista.filter((a) => a.kind !== 'transport' && (a.lat != null || a.maps_query)));
   const prev = b.days.find((d) => d.day_number === day.day_number - 1), next = b.days.find((d) => d.day_number === day.day_number + 1);
 
@@ -141,7 +162,7 @@ async function vDia(n) {
   };
 
   render(`<main class="dia">
-    <div class="foto-dia" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${!foto && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
+    <div class="foto-dia" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${credito(fotoExt)}${!day.photo_path && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
     <header class="cab">
       <div class="cab-l">
         <div class="cab-nav">${prev ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${prev.day_number}" aria-label="Dia anterior">${I.voltar}</a>` : '<span class="b-mini off"></span>'}
@@ -168,11 +189,12 @@ async function vAtividade(id) {
   const day = b.days.find((d) => d.id === a.day_id); const rk = rankPrincipal(); const pos = rk.map[a.ext_key];
   const outros = b.rankingItems.filter((i) => (i.activity_ext_keys || []).includes(a.ext_key) && i.ranking_id !== rk.r?.id)
     .map((i) => ({ i, r: b.rankings.find((r) => r.id === i.ranking_id), tot: b.rankingItems.filter((j) => j.ranking_id === i.ranking_id).length }));
-  const fotos = b.photos.filter((p) => p.activity_id === a.id); const urls = await urlsAssinados('photos', fotos.map((p) => p.path));
+  const fotos = b.photos.filter((p) => p.activity_id === a.id).sort((x, y) => (x.external_url ? 1 : 0) - (y.external_url ? 1 : 0));
+  const urls = await urlsAssinados('photos', fotos.filter((p) => p.path).map((p) => p.path));
   const tk = bilhetes({ activity_id: a.id }); const rem = b.reminders.filter((r) => r.activity_id === a.id);
   const temLocal = a.lat != null || a.maps_query || a.place_name;
   render(`<main class="ficha">
-    <div class="galeria" id="galeria">${fotos.length ? fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(urls[p.path] || '')}')">${b.isOwner ? `<button class="g-del" data-act="apagar-foto" data-id="${p.id}" data-path="${esc(p.path)}" aria-label="Apagar foto">✕</button>` : ''}</div>`).join('') : '<div class="g-foto g-vazia"></div>'}</div>
+    <div class="galeria" id="galeria">${fotos.length ? fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}${b.isOwner ? `<button class="g-del" data-act="apagar-foto" data-id="${p.id}" data-path="${esc(p.path || '')}" aria-label="Apagar foto">✕</button>` : ''}</div>`).join('') : '<div class="g-foto g-vazia"></div>'}</div>
     <div class="vinheta-f"></div>
     <div class="ficha-top"><a class="b-ic esc" href="#/v/${S.tripId}/dia/${day?.day_number || 1}" aria-label="Voltar ao dia">${I.voltar}</a>
       <span class="g-n">${fotos.length ? `${fotos.length} foto${fotos.length > 1 ? 's' : ''}` : ''}</span>
@@ -456,7 +478,7 @@ document.addEventListener('click', async (e) => {
       return op(sb.from('trips').update({ info }).eq('id', S.tripId), 'Opção escolhida.'); }
     if (a === 'ver-bilhete') { const u = await abrirBilhete(el.dataset.path); return u ? window.open(u, '_blank') : toast('Bilhete indisponível sem rede. Usa "Guardar bilhetes neste telemóvel".'); }
     if (a === 'apagar-bilhete') { if (!confirm('Apagar este bilhete?')) return; await apagarFicheiro('tickets', el.dataset.path); return op(sb.from('tickets').delete().eq('id', id), 'Bilhete apagado.'); }
-    if (a === 'apagar-foto') { if (!confirm('Apagar esta foto?')) return; await apagarFicheiro('photos', el.dataset.path); return op(sb.from('activity_photos').delete().eq('id', id)); }
+    if (a === 'apagar-foto') { if (!confirm('Apagar esta foto?')) return; if (el.dataset.path) await apagarFicheiro('photos', el.dataset.path); return op(sb.from('activity_photos').delete().eq('id', id)); }
     if (a === 'novo-lembrete') return fLembrete(el.dataset.campo, id);
     if (a === 'apagar-lembrete') return op(sb.from('reminders').delete().eq('id', id), 'Lembrete apagado.');
     if (a === 'calendario') { const at = S.b.activities.find((x) => x.id === id); const d = S.b.days.find((x) => x.id === at.day_id);
@@ -498,6 +520,7 @@ async function router() {
     render('<main class="pag"><p class="carrega">A carregar a viagem…</p></main>');
     S.tripId = id;
     try { S.b = await carregarViagem(id); } catch { S.b = null; toast('Não foi possível abrir esta viagem.'); return vViagens(); }
+    setTimeout(completarFotos, 1500);
   }
   const v = parts[2];
   if (!v) { const n = diaDeHoje(); location.replace(n ? `#/v/${id}/dia/${n}` : `#/v/${id}/resumo`); return; }
