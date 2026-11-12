@@ -293,3 +293,30 @@ body.pc .detalhe .ficha-corpo { margin-top: -28px; border-radius: 22px 22px 0 0;
 }
 :root[data-theme="dark"] .b-link:not(.claro), :root[data-theme="dark"] .pre-l a { color: var(--ouro); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .b-link:not(.claro), :root:not([data-theme="light"]) .pre-l a { color: var(--ouro); } }
+
+/* ---------- animação de arranque ---------- */
+#arranque { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 40%, #1E4460 0%, #13283A 60%, #0E2233 100%); transition: opacity .5s ease, visibility .5s; }
+#arranque.sair { opacity: 0; visibility: hidden; }
+.arr-centro { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px; }
+.arr-logo { width: min(46vw, 220px); height: auto; overflow: visible; }
+.arr-p { transform-box: fill-box; opacity: 0; }
+.arr-p2 { transform-origin: center; animation: arr-meio .45s cubic-bezier(.2,.8,.2,1) .15s forwards; }
+.arr-p1 { transform-origin: right center; animation: arr-abre .5s cubic-bezier(.2,.8,.2,1) .5s forwards; }
+.arr-p3 { transform-origin: left center; animation: arr-abre .5s cubic-bezier(.2,.8,.2,1) .7s forwards; }
+@keyframes arr-meio { from { opacity: 0; transform: scaleY(.6); } to { opacity: 1; transform: none; } }
+@keyframes arr-abre { from { opacity: 0; transform: scaleX(0); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
+.arr-traco-mask { stroke-dasharray: 60; stroke-dashoffset: 60; animation: arr-traco .9s ease-in-out 1.25s forwards; }
+@keyframes arr-traco { to { stroke-dashoffset: 0; } }
+.arr-inicio { opacity: 0; animation: arr-aparece .2s ease 1.2s forwards; }
+.arr-pino { transform-box: fill-box; transform-origin: center bottom; opacity: 0; animation: arr-pino .55s cubic-bezier(.3,1.6,.5,1) 2.1s forwards; }
+@keyframes arr-pino { from { opacity: 0; transform: translateY(-18px) scale(.6); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes arr-aparece { to { opacity: 1; } }
+.arr-nome { font-family: 'Young Serif', Georgia, serif; font-size: clamp(28px, 7vw, 40px); color: #F3EDE2; letter-spacing: .3px; white-space: nowrap; }
+.arr-nome .arr-m { color: #E3D3B6; }
+.arr-nome span { display: inline-block; opacity: 0; filter: blur(5px); transform: translateY(8px); animation: arr-nome .6s ease forwards; animation-delay: calc(2.45s + var(--i, 0) * .07s); }
+.arr-nome .arr-esp { width: .3em; animation: none; }
+@keyframes arr-nome { to { opacity: 1; filter: none; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .arr-p, .arr-inicio, .arr-pino, .arr-nome span { animation: none !important; opacity: 1 !important; filter: none !important; transform: none !important; }
+  .arr-traco-mask { animation: none; stroke-dashoffset: 0; }
+}
