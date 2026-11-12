@@ -16,6 +16,7 @@ const I = {
   sino: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
   mais: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
 };
+const LOGO = '<svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true"><polygon points="16,28 38,20 38,74 16,82" fill="#E3D3B6"/><polygon points="38,20 62,28 62,82 38,74" fill="#CDB993"/><polygon points="62,28 84,20 84,74 62,82" fill="#E3D3B6"/><path d="M22 66 Q 32 50 44 57 T 66 47" fill="none" stroke="#13283A" stroke-width="3" stroke-dasharray="2 4" stroke-linecap="round"/><path d="M70 30 a9 9 0 0 1 9 9 c0 7 -9 15 -9 15 s-9 -8 -9 -15 a9 9 0 0 1 9 -9z" fill="#13283A"/><circle cx="70" cy="39" r="3.2" fill="#E3D3B6"/></svg>';
 const NAV = [['dia', 'Dia', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], ['resumo', 'Resumo', '<path d="M4 6h16M4 12h16M4 18h10"/>'],
   ['hoteis', 'Hotéis', '<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/>'], ['transportes', 'Transportes', '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l2-4M16 21l-2-4"/>'],
   ['mais', 'Mais', '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>']];
@@ -66,7 +67,7 @@ function lateral() {
   const it = [['dia', 'Dia', `#/v/${id}/dia/${diaAtual}`], ['resumo', 'Resumo'], ['hoteis', 'Hotéis'], ['transportes', 'Transportes'],
     ...(rk ? [['ranking', 'Ranking', `#/v/${id}/ranking/${rk.id}`]] : []), ...(b.isOwner ? [['reservas', 'Reservas']] : []), ['mais', 'Mais']];
   return `<aside class="lateral" aria-label="Navegação">
-    <a class="lat-marca" href="#/">${I.mapa}<span>Roteiros</span></a>
+    <a class="lat-marca" href="#/">${LOGO}<span>Roteiros Miguel</span></a>
     <div><h2>${esc(b.trip.title)}</h2><p>${intervalo(b.trip.start_date, b.trip.end_date)}</p></div>
     <nav class="lat-nav">${it.map(([k, t, h]) => `<a href="${h || `#/v/${id}/${k}`}" ${k === ativo ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
     <div class="lat-dias"><span>Dias</span>${b.days.map((d) => `<a href="#/v/${id}/dia/${d.day_number}" ${ativo === 'dia' && d.day_number === diaAtual ? 'aria-current="date"' : ''}><b>${d.day_number}</b>${esc(d.city || '')}</a>`).join('')}</div>
@@ -129,7 +130,7 @@ async function op(p, ok) { const { error } = await p; if (error) throw error; if
 // ---------- entrar ----------
 function vLogin(modo = 'entrar') {
   render(`<main class="login"><div class="login-card">
-    <div class="marca">${I.mapa}<span>Roteiros</span></div>
+    <div class="marca">${LOGO}<span>Roteiros Miguel</span></div>
     <h1>${modo === 'nova' ? 'Definir password' : 'Entrar'}</h1>
     ${modo === 'nova' ? '<p class="sub">Escolhe a password para entrares na app.</p>' : ''}
     <form id="f-login" class="form">
@@ -573,3 +574,12 @@ sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') vLogin('nova
 setInterval(() => { if (/\/dia\//.test(location.hash) && !document.querySelector('.folha-fundo')) router(); }, 60000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 router();
+
+// animação de arranque: uma vez por sessão, no mínimo até ao nome aparecer
+(function arranque() {
+  const el = document.getElementById('arranque'); if (!el) return;
+  if (sessionStorage.getItem('arranque-visto')) { el.remove(); return; }
+  sessionStorage.setItem('arranque-visto', '1');
+  const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => { el.classList.add('sair'); setTimeout(() => el.remove(), 600); }, reduzido ? 900 : 4000);
+})();
