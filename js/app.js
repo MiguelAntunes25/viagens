@@ -257,38 +257,78 @@ async function vAtividade(id, comoPainel = false) {
   render(`<main class="ficha">${html}</main>`);
 }
 
-// ---------- resumo ----------
+// ---------- resumo (linha do tempo) ----------
 function vResumo() {
   const b = S.b; const rk = rankPrincipal(); const info = b.trip.info || {};
-  render(`<main class="pag com-nav">
-    <header class="cab-pag"><a class="b-ic" href="#/" aria-label="Todas as viagens">${I.voltar}</a><div><h1>${esc(b.trip.title)}</h1><p>${intervalo(b.trip.start_date, b.trip.end_date)}</p></div></header>
+  const icTr = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l2-4M16 21l-2-4"/></svg>';
+  const dia = (d) => {
+    const { lista } = atividadesDoDia(d); const h = hotelNa(d.date);
+    // até 3 locais com foto, pelos mais bem classificados no ranking
+    const vistos = new Set();
+    const locais = lista.map((a) => ({ a, p: b.photos.find((p) => p.activity_id === a.id && (p.external_url || p.path)) }))
+      .filter((x) => x.p && !vistos.has(x.a.wiki_title || x.a.id) && vistos.add(x.a.wiki_title || x.a.id))
+      .sort((x, y) => (rk.map[x.a.ext_key] || 99) - (rk.map[y.a.ext_key] || 99)).slice(0, 3)
+      .sort((x, y) => (toMin(x.a.start_time) ?? 0) - (toMin(y.a.start_time) ?? 0));
+    const res = reservasEm(d.date);
+    const tr = res.length ? res.map((x) => `${KIND_LABEL[x.kind]} ${hhmm(x.depart_time)} · ${x.from_place || ''} → ${x.to_place || ''}`).join(' · ')
+      : b.planned.filter((p) => (p.day_numbers || []).includes(d.day_number)).map((p) => p.title).join(' · ');
+    const hotel = h ? `<a class="lin ht" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>${esc(h.name)}</a>`
+      : d.date >= b.trip.end_date ? `<div class="lin ht"><span class="ic">${I.cama}</span>Regresso a casa</div>`
+      : `<a class="lin ht falta" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>Hotel por adicionar</a>`;
+    const href = `#/v/${S.tripId}/dia/${d.day_number}`;
+    return `<li><a class="rs-num" href="${href}" aria-label="Abrir o dia ${d.day_number}"><small>DIA</small><b>${d.day_number}</b></a>
+      <article class="rs-card"><a class="rs-cab" href="${href}"><span class="rs-data">${dataCurta(d.date)}</span><h2>${esc(d.city || '')}</h2><span class="rs-tit">${esc(d.title || '')}</span></a>
+      ${locais.length ? `<div class="rs-locs">${locais.map((x) => `<a class="rs-loc" href="#/v/${S.tripId}/a/${x.a.id}"><span class="rs-f" style="background-image:url('${esc(x.p.external_url || '')}'), linear-gradient(160deg, #8FA9BC, #C9A98C 55%, #7E5A44)"></span><span>${esc(x.a.title)}</span></a>`).join('')}</div>`
+        : (d.highlights || []).length ? `<p class="rs-dest">${(d.highlights || []).map(esc).join(' · ')}</p>` : ''}
+      <div class="rs-rod">${tr ? `<div class="lin tr"><span class="ic">${icTr}</span>${esc(tr)}</div>` : ''}${hotel}</div></article></li>`;
+  };
+  render(`<main class="pag com-nav resumo-pag">
+    <header class="rs-topo"><a class="b-ic esc rs-voltar" href="#/" aria-label="Todas as viagens">${I.voltar}</a>
+      <h1>${esc(b.trip.title)}</h1><p>${intervalo(b.trip.start_date, b.trip.end_date)} · ${b.days.length} dias</p>
+      ${(info.cidades || []).length ? `<div class="rs-cid">${info.cidades.map((c) => `<span><b>${esc(c.cidade)}</b> · ${c.noites} noite${c.noites > 1 ? 's' : ''}</span>`).join('')}</div>` : ''}</header>
     ${b.offline ? '<p class="aviso">Sem rede: a mostrar a última cópia guardada.</p>' : ''}
     ${info.perfil ? `<p class="perfil">${esc(info.perfil)}</p>` : ''}
-    ${(info.cidades || []).length ? `<div class="cidades">${info.cidades.map((c) => `<div><strong>${esc(c.cidade)}</strong><span>${c.noites} noite${c.noites > 1 ? 's' : ''} · dias ${esc(c.dias)}</span></div>`).join('')}</div>` : ''}
-    <ol class="resumo">${b.days.map((d) => { const h = hotelNa(d.date); const tr = reservasEm(d.date)[0];
-      const plan = b.planned.filter((p) => (p.day_numbers || []).includes(d.day_number)).map((p) => p.title);
-      const est = atividadesDoDia(d).lista.filter((a) => rk.map[a.ext_key] && rk.map[a.ext_key] <= 5).length;
-      return `<li><a href="#/v/${S.tripId}/dia/${d.day_number}"><span class="rs-n">${d.day_number}</span><span class="rs-c">
-        <span class="rs-d">${dataCurta(d.date)} · ${esc(d.city || '')}</span><span class="rs-t">${esc(d.title || '')}</span>
-        <span class="rs-x">${(d.highlights || []).map(esc).join(' · ')}</span>
-        <span class="rs-m">${I.cama}${h ? esc(h.name) : 'Hotel por adicionar'}${tr ? ` · ${KIND_LABEL[tr.kind]} ${esc(hhmm(tr.depart_time))}` : plan[0] ? ` · ${esc(plan[0])}` : ''}</span></span>${est ? `<span class="rs-star">${I.estrela}</span>` : ''}</a></li>`; }).join('')}</ol>
+    <ol class="rs-linha">${b.days.map(dia).join('')}</ol>
     ${info.nota_restaurantes ? `<p class="nota">${esc(info.nota_restaurantes)}</p>` : ''}
     ${nav('resumo')}</main>`);
 }
 
 // ---------- hotéis ----------
 function vHoteis() {
-  const b = S.b;
-  render(`<main class="pag com-nav"><header class="cab-pag"><div><h1>Hotéis</h1><p>${esc(b.trip.title)}</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="hotel">${I.mais} Adicionar</button>` : ''}</header>
-    <div class="lista">${b.hotels.map((h) => { const ds = b.days.filter((d) => h.check_in <= d.date && d.date < h.check_out); const tk = bilhetes({ hotel_id: h.id });
-      return `<article class="caixa"><div class="cx-h"><h2>${esc(h.name)}</h2>${b.isOwner ? `<button class="b-link" data-act="hotel" data-id="${h.id}">Editar</button>` : ''}</div>
-        <p class="meta">${dataCurta(h.check_in)} → ${dataCurta(h.check_out)} · ${noites(h.check_in, h.check_out)} noites</p>
-        ${h.check_in_time || h.check_out_time ? `<p class="meta">Check-in ${esc(h.check_in_time || '—')} · Check-out ${esc(h.check_out_time || '—')}</p>` : ''}
-        ${h.address ? `<a class="b-maps peq" href="${esc(h.maps_url || mapsDirLink({ maps_query: h.address }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
-        <dl class="dados">${h.booking_code ? `<dt>Reserva</dt><dd>${esc(h.booking_code)}</dd>` : ''}${h.phone ? `<dt>Telefone</dt><dd><a href="tel:${esc(h.phone)}">${esc(h.phone)}</a></dd>` : ''}</dl>
-        ${h.notes ? `<p>${esc(h.notes)}</p>` : ''}
+  const b = S.b; const hoje = hojeEm(tz());
+  const lista = [...b.hotels].sort((x, y) => String(x.check_in).localeCompare(String(y.check_in)));
+  const cartao = (h) => {
+    const ds = b.days.filter((d) => h.check_in <= d.date && d.date < h.check_out); const tk = bilhetes({ hotel_id: h.id });
+    const n = noites(h.check_in, h.check_out); const pq = porNoiteQuarto(h);
+    const diasCanc = h.cancel_by ? Math.round((new Date(h.cancel_by) - new Date(hoje)) / 86400000) : null;
+    const canc = h.cancel_by ? (diasCanc < 0 ? `<span class="ht-alerta passou">Cancelamento grátis terminou a ${dataCurta(h.cancel_by)}</span>`
+      : diasCanc <= 14 ? `<span class="ht-alerta">Cancelamento grátis até ${dataCurta(h.cancel_by)} · faltam ${diasCanc} dia${diasCanc === 1 ? '' : 's'}</span>` : '') : '';
+    return `<li><article class="ht-card">
+      <header class="ht-cab"><div><span class="ht-cidade">${esc(h.city || ds[0]?.city || 'Hotel')}</span><h2>${esc(h.name)}</h2></div>
+        <span class="ht-noites"><b>${n}</b>${n === 1 ? 'noite' : 'noites'}</span></header>
+      <div class="ht-datas">
+        <div><span>Check-in</span><strong>${dataCurta(h.check_in)}</strong>${h.check_in_time ? `<small>a partir das ${esc(h.check_in_time)}</small>` : ''}</div>
+        <span class="ht-seta" aria-hidden="true">→</span>
+        <div><span>Check-out</span><strong>${dataCurta(h.check_out)}</strong>${h.check_out_time ? `<small>até às ${esc(h.check_out_time)}</small>` : ''}</div>
+      </div>
+      <div class="ht-corpo">
+        <div class="ht-chips">${h.board ? `<span class="ht-chip ouro">${esc(regimeTxt(h.board))}</span>` : ''}<span class="ht-chip">${h.rooms || 1} quarto${(h.rooms || 1) > 1 ? 's' : ''}</span>${h.agency ? `<span class="ht-chip">${esc(h.agency)}</span>` : ''}</div>
+        ${canc}
+        ${h.address ? `<a class="b-maps peq" href="${esc(h.maps_url || mapsDirLink({ maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
+        <dl class="ht-dados">${h.booking_code ? `<div><dt>Reserva</dt><dd>${esc(h.booking_code)}</dd></div>` : ''}${h.phone ? `<div><dt>Telefone</dt><dd><a href="tel:${esc(h.phone)}">${esc(h.phone)}</a></dd></div>` : ''}</dl>
+        ${b.isOwner && (h.total_price != null || h.payment_date || h.cancel_by) ? `<div class="ht-valores">
+          ${h.total_price != null ? `<div><span>Valor total</span><strong>${dinheiro(h.total_price, h.currency)}</strong></div>` : ''}
+          ${pq != null ? `<div><span>Por noite e quarto</span><strong>${dinheiro(pq, h.currency)}</strong></div>` : ''}
+          ${h.payment_date ? `<div><span>Pagamento</span><strong>${dataCurta(h.payment_date)}</strong></div>` : ''}
+          ${h.cancel_by ? `<div><span>Cancelamento grátis até</span><strong>${dataCurta(h.cancel_by)}</strong></div>` : ''}</div>` : ''}
+        ${h.notes ? `<p class="ht-notas">${esc(h.notes)}</p>` : ''}
         ${documentos(tk, 'hotel_id', h.id)}
-        <div class="dias-l">${ds.map((d) => `<a href="#/v/${S.tripId}/dia/${d.day_number}">Dia ${d.day_number}</a>`).join('')}</div></article>`; }).join('') || `<p class="vazio">${b.isOwner ? 'Ainda não adicionaste hotéis. Coloca aqui os que fores reservando.' : 'Ainda não há hotéis.'}</p>`}</div>
+        <div class="ht-rod"><div class="dias-l">${ds.map((d) => `<a href="#/v/${S.tripId}/dia/${d.day_number}">Dia ${d.day_number}</a>`).join('')}</div>
+          ${b.isOwner ? `<button class="b-link" data-act="hotel" data-id="${h.id}">Editar</button>` : ''}</div>
+      </div></article></li>`;
+  };
+  render(`<main class="pag com-nav hoteis-pag"><header class="cab-pag"><div><h1>Hotéis</h1><p>${esc(b.trip.title)} · por ordem de chegada</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="hotel">${I.mais} Adicionar</button>` : ''}</header>
+    ${lista.length ? `<ol class="ht-lista">${lista.map(cartao).join('')}</ol>` : `<p class="vazio">${b.isOwner ? 'Ainda não adicionaste hotéis. Coloca aqui os que fores reservando.' : 'Ainda não há hotéis.'}</p>`}
     ${nav('hoteis')}</main>`);
 }
 function documentos(tk, campoId, id) {
@@ -418,15 +458,34 @@ function vInstalar() {
 }
 
 // ---------- formulários ----------
+const REGIMES = [['', '—'], ['so_alojamento', 'Só alojamento'], ['pequeno_almoco', 'Pequeno-almoço'], ['meia_pensao', 'Meia pensão'], ['pensao_completa', 'Pensão completa'], ['tudo_incluido', 'Tudo incluído']];
+const regimeTxt = (k) => REGIMES.find(([v]) => v === k)?.[1] || '';
+const dinheiro = (v, moeda = 'EUR') => v == null || v === '' ? '' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: moeda || 'EUR' }).format(Number(v));
+const porNoiteQuarto = (h) => { const n = h.check_in && h.check_out ? noites(h.check_in, h.check_out) : 0; const q = Number(h.rooms) || 1;
+  return h.total_price && n > 0 ? Number(h.total_price) / n / q : null; };
 function fHotel(id) {
-  const h = S.b.hotels.find((x) => x.id === id) || {};
-  folha(id ? 'Editar hotel' : 'Novo hotel', campo('name', 'Nome', h.name, 'text', 'required') + campo('address', 'Morada', h.address) + campo('maps_url', 'Link do Google Maps (opcional)', h.maps_url, 'url')
+  const h = S.b.hotels.find((x) => x.id === id) || { rooms: 1, currency: 'EUR' };
+  folha(id ? 'Editar hotel' : 'Novo hotel',
+    campo('name', 'Nome', h.name, 'text', 'required') + campo('city', 'Cidade', h.city, 'text', 'required')
+    + campo('address', 'Morada', h.address) + campo('maps_url', 'Link do Google Maps (opcional)', h.maps_url, 'url')
     + `<div class="duas">${campo('check_in', 'Check-in', h.check_in, 'date', 'required')}${campo('check_out', 'Check-out', h.check_out, 'date', 'required')}</div>`
     + `<div class="duas">${campo('check_in_time', 'Hora check-in', h.check_in_time, 'time')}${campo('check_out_time', 'Hora check-out', h.check_out_time, 'time')}</div>`
-    + campo('booking_code', 'Código de reserva', h.booking_code) + campo('phone', 'Telefone', h.phone, 'tel') + area('notes', 'Notas', h.notes)
+    + `<div class="duas">${escolha('board', 'Regime', REGIMES, h.board || '')}${campo('rooms', 'N.º de quartos', h.rooms ?? 1, 'number', 'min="1" step="1" required')}</div>`
+    + `<div class="duas">${campo('total_price', 'Valor total', h.total_price ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')}${escolha('currency', 'Moeda', [['EUR', 'Euro (€)'], ['GBP', 'Libra (£)'], ['USD', 'Dólar ($)'], ['JPY', 'Iene (¥)'], ['HUF', 'Florim (Ft)'], ['CHF', 'Franco suíço']], h.currency || 'EUR')}</div>`
+    + '<div class="calculo" id="calc-noite" aria-live="polite"></div>'
+    + `<div class="duas">${campo('payment_date', 'Data de pagamento', h.payment_date, 'date')}${campo('cancel_by', 'Cancelamento grátis até', h.cancel_by, 'date')}</div>`
+    + campo('agency', 'Agência / plataforma', h.agency, 'text', 'placeholder="Ex.: Booking, direto no hotel"')
+    + `<div class="duas">${campo('booking_code', 'Código de reserva', h.booking_code)}${campo('phone', 'Telefone', h.phone, 'tel')}</div>` + area('notes', 'Notas', h.notes)
     + (id ? '<button type="button" class="b-perigo" data-apagar>Apagar hotel</button>' : ''),
-  async (f) => { f.trip_id = S.tripId; for (const k of ['maps_url', 'check_in_time', 'check_out_time']) if (!f[k]) f[k] = null;
+  async (f) => { f.trip_id = S.tripId;
+    for (const k of ['maps_url', 'check_in_time', 'check_out_time', 'board', 'payment_date', 'cancel_by', 'total_price', 'agency', 'city']) if (!f[k]) f[k] = null;
+    f.rooms = Number(f.rooms) || 1; if (f.total_price != null) f.total_price = Number(f.total_price);
+    if (f.check_out <= f.check_in) throw new Error('O check-out tem de ser depois do check-in.');
     await op(id ? sb.from('hotels').update(f).eq('id', id) : sb.from('hotels').insert(f), 'Hotel guardado.'); });
+  const form = document.querySelector('.folha form'); const out = document.getElementById('calc-noite');
+  const calc = () => { const v = Object.fromEntries(new FormData(form)); const p = porNoiteQuarto(v); const n = v.check_in && v.check_out ? noites(v.check_in, v.check_out) : 0;
+    out.innerHTML = p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiro(p, v.currency)}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>'; };
+  form.addEventListener('input', calc); calc();
   ligarApagar('hotels', id, 'Apagar este hotel?');
 }
 function fReserva(id) {
