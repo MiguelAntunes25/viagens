@@ -94,7 +94,8 @@ function folha(titulo, corpo, aoGuardar) {
   w.innerHTML = `<div class="folha" role="dialog" aria-modal="true" aria-label="${esc(titulo)}"><div class="folha-top"><h2>${esc(titulo)}</h2><button class="b-ic" data-fechar aria-label="Fechar">✕</button></div><form class="form">${corpo}<div class="form-acoes"><button type="button" class="b-sec" data-fechar>Cancelar</button><button class="b-pri" type="submit">Guardar</button></div></form></div>`;
   document.body.appendChild(w);
   const fechar = () => w.remove();
-  w.addEventListener('click', (e) => { if (e.target === w || e.target.closest('[data-fechar]')) fechar(); });
+  // só fecha com Cancelar, ✕ ou Guardar (clicar fora ou selecionar texto não fecha)
+  w.addEventListener('click', (e) => { if (e.target.closest('[data-fechar]')) fechar(); });
   w.querySelector('form').addEventListener('submit', async (e) => {
     e.preventDefault(); const btn = e.submitter; btn.disabled = true;
     try { await aoGuardar(Object.fromEntries(new FormData(e.target))); fechar(); } catch (err) { toast(err.message || 'Não foi possível guardar.'); btn.disabled = false; }
@@ -569,6 +570,7 @@ function fHotel(id, pre = {}) {
     out.innerHTML = (p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiro(p, v.currency)}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>')
       + (fp != null ? `<span class="calc-l2">${v.status === 'pago' ? 'Pago na totalidade' : 'Falta pagar'}</span><strong class="calc-l2">${dinheiro(fp, v.currency)}</strong>` : ''); };
   form.addEventListener('input', calc); calc();
+  ligarDatas(form, 'check_in', 'check_out', 1);
   ligarApagar('hotels', id, 'Apagar este hotel?');
 }
 function fReserva(id) {
@@ -581,7 +583,15 @@ function fReserva(id) {
     + campo('booking_code', 'Código de reserva', x.booking_code) + campo('seats', 'Lugares', x.seats) + area('notes', 'Notas', x.notes)
     + (id ? '<button type="button" class="b-perigo" data-apagar>Apagar reserva</button>' : ''),
   async (f) => { f.trip_id = S.tripId; if (!f.arrive_date) f.arrive_date = null; await op(id ? sb.from('bookings').update(f).eq('id', id) : sb.from('bookings').insert(f), 'Reserva guardada.'); });
+  ligarDatas(document.querySelector('.folha form'), 'depart_date', 'arrive_date', 0);
   ligarApagar('bookings', id, 'Apagar esta reserva e os bilhetes associados?');
+}
+// a data final abre no mês da data inicial: mínimo = data inicial, e se estiver vazia ou antes, passa para o dia seguinte
+function ligarDatas(form, campoIni, campoFim, diasDepois = 0) {
+  const ini = form.querySelector(`[name="${campoIni}"]`), fim = form.querySelector(`[name="${campoFim}"]`); if (!ini || !fim) return;
+  const acertar = () => { if (!ini.value) return; const m = diasDepois ? maisDia(ini.value) : ini.value; fim.min = m;
+    if (!fim.value || fim.value < m) fim.value = m; fim.dispatchEvent(new Event('input', { bubbles: true })); };
+  ini.addEventListener('change', acertar); if (ini.value) fim.min = diasDepois ? maisDia(ini.value) : ini.value;
 }
 function ligarApagar(tabela, id, pergunta) {
   if (!id) return;
