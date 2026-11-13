@@ -332,7 +332,8 @@ function vHoteis() {
     const linha = (t, v) => v ? `<div><dt>${t}</dt><dd>${v}</dd></div>` : '';
     return `<div class="hx-mais">
       ${canc}
-      <dl class="hx-dl">${linha('Regime', esc(regimeTxt(h.board)))}${linha('Quartos', h.rooms || 1)}${linha('Check-in', h.check_in_time ? 'a partir das ' + esc(h.check_in_time) : '')}${linha('Check-out', h.check_out_time ? 'até às ' + esc(h.check_out_time) : '')}
+      <dl class="hx-dl">${linha('Check-in', dataCurta(h.check_in) + (h.check_in.slice(0, 4) !== b.trip.start_date.slice(0, 4) ? ' ' + h.check_in.slice(0, 4) : '') + (h.check_in_time ? ' · ' + esc(h.check_in_time) : ''))}${linha('Check-out', dataCurta(h.check_out) + (h.check_out.slice(0, 4) !== b.trip.start_date.slice(0, 4) ? ' ' + h.check_out.slice(0, 4) : '') + (h.check_out_time ? ' · ' + esc(h.check_out_time) : ''))}
+        ${linha('Noites', noites(h.check_in, h.check_out))}${linha('Regime', esc(regimeTxt(h.board)))}${linha('Quartos', h.rooms || 1)}
         ${linha('Agência', esc(h.agency || ''))}${linha('Reserva', esc(h.booking_code || ''))}${linha('Telefone', h.phone ? `<a href="tel:${esc(h.phone)}">${esc(h.phone)}</a>` : '')}
         ${b.isOwner ? linha('Valor total', dinheiro(h.total_price, h.currency)) + linha('Sinal', h.deposit != null ? dinheiro(h.deposit, h.currency) : '') + linha('Falta pagar', faltaPagar(h) != null ? (h.status === 'pago' ? 'Nada · pago' : dinheiro(faltaPagar(h), h.currency)) : '') + linha('Por noite e quarto', pq != null ? dinheiro(pq, h.currency) : '') + linha(h.status === 'pago' ? 'Pago a' : 'Pagamento', h.payment_date ? dataCurta(h.payment_date) : '') : ''}</dl>
       ${h.address ? `<a class="b-maps peq" href="${esc(h.maps_url || mapsDirLink({ maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
@@ -379,7 +380,8 @@ function vHoteis() {
     <h2 class="hy-sec">Estadias</h2>
     <ol class="hy-linha">${segs.map(bloco).join('')}
       <li class="hy-bloco fim"><div class="hy-marca"><span class="hy-ponto"></span><span class="hy-md">${fimP.n} ${fimP.m}</span></div><div class="hy-fim">Fim da viagem</div></li></ol>
-    ${fora.length ? `<h2 class="sec">Fora das datas da viagem</h2><div class="hy-grupo">${fora.map(cartao).join('')}</div>` : ''}
+    ${fora.length ? `<h2 class="hy-sec hy-sec-pag">Fora das datas da viagem</h2><div class="hy-grupo">${fora.map((h) => { const n = noites(h.check_in, h.check_out);
+      return `<div class="hy-marca hy-marca-fora"><span class="hy-md">${dataCurta(h.check_in)} ${h.check_in.slice(0, 4)} a ${dataCurta(h.check_out)} ${h.check_out.slice(0, 4)}</span><span class="hy-mw">${n} noite${n === 1 ? '' : 's'}</span></div>${cartao(h)}`; }).join('')}</div>` : ''}
     ${b.isOwner && ativos.length ? (() => {
       const dias = (d) => Math.round((new Date(d) - new Date(hoje)) / 86400000);
       const MSx = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
