@@ -807,3 +807,4 @@ body.pc .hy-card.hfa > summary, body.pc .hy-card.hfa .hy-sum { grid-template-col
 .hz-l { align-items: start; }
 .hz-v { padding-top: 1px; }
 .hz-pagos li span:first-child { min-width: 0; }
+.hy-marca-fora { margin: 6px 0 0; }
