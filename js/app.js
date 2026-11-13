@@ -310,14 +310,24 @@ function vHoteis() {
   const noitesV = []; for (let d = b.trip.start_date; d < b.trip.end_date; d = maisDia(d)) noitesV.push(d);
   const cobre = (h, d) => h.check_in <= d && d < h.check_out;
   const estadoNoite = (d) => { const hs = ativos.filter((h) => cobre(h, d)); return !hs.length ? 'sem' : hs.some((h) => h.status === 'pago') ? 'pago' : 'pend'; };
-  const segs = [];
-  for (const d of noitesV) {
-    const hs = ativos.filter((h) => cobre(h, d)); const u = segs[segs.length - 1];
-    if (!hs.length) { if (u && !u.hs.length) u.noites.push(d); else segs.push({ hs: [], noites: [d] }); continue; }
-    if (u && u.hs.length && hs.some((h) => u.hs.includes(h))) { u.noites.push(d); hs.forEach((h) => { if (!u.hs.includes(h)) u.hs.push(h); }); }
-    else segs.push({ hs: [...hs], noites: [d] });
-  }
-  segs.forEach((sg) => sg.hs.sort((x, y) => String(x.check_in).localeCompare(String(y.check_in)) || String(x.name).localeCompare(String(y.name))));
+  // cidade de cada noite: a do dia (no dia de viagem, a cidade de destino)
+  // cidade de cada noite: pelas cidades e noites do roteiro (ex.: Amesterdão 3, Bruges 3, Bruxelas 1); se faltar, pela cidade do dia
+  const porRoteiro = []; (b.trip.info?.cidades || []).forEach((c) => { for (let k = 0; k < (Number(c.noites) || 0); k++) porRoteiro.push(c.cidade); });
+  const cidadeNoite = (d) => { const k = noitesV.indexOf(d); if (porRoteiro.length === noitesV.length && k >= 0) return porRoteiro[k];
+    return (b.days.find((x) => x.date === d)?.city || '').split('→').pop().trim(); };
+  const agrupar = (ns) => { const out = [];
+    for (const d of ns) {
+      const hs = ativos.filter((h) => cobre(h, d)); const u = out[out.length - 1];
+      if (!hs.length) { if (u && !u.hs.length) u.noites.push(d); else out.push({ hs: [], noites: [d] }); continue; }
+      if (u && u.hs.length && hs.some((h) => u.hs.includes(h))) { u.noites.push(d); hs.forEach((h) => { if (!u.hs.includes(h)) u.hs.push(h); }); }
+      else out.push({ hs: [...hs], noites: [d] });
+    }
+    out.forEach((sg) => sg.hs.sort((x, y) => String(x.check_in).localeCompare(String(y.check_in)) || String(x.name).localeCompare(String(y.name))));
+    return out; };
+  const estadas = [];
+  for (const d of noitesV) { const c = cidadeNoite(d); const u = estadas[estadas.length - 1];
+    if (u && u.cidade === c) u.noites.push(d); else estadas.push({ cidade: c, noites: [d] }); }
+  estadas.forEach((e) => { e.segs = agrupar(e.noites); });
   const fimP = { n: Number(b.trip.end_date.slice(8, 10)), m: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(b.trip.end_date.slice(5, 7)) - 1] };
   const cont = { pago: 0, pend: 0, sem: 0 }; noitesV.forEach((d) => cont[estadoNoite(d)]++);
   const MS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'], WS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -351,19 +361,19 @@ function vHoteis() {
       : `<span class="hgc-c hgc-falta"><small>Falta</small>${b.isOwner && faltaPagar(h) != null ? dinheiro(faltaPagar(h), h.currency) : 'Por pagar'}</span>`;
     return `<details class="hy-card hgc ${pago ? 'pago' : 'pend'}">
       <summary><span class="hgc-tt"><span class="hgc-foto" style="${ft ? `background-image:url('${esc(ft)}')` : ''}" aria-hidden="true"></span>
-          <span class="hgc-nm"><span class="hy-cid">${esc(h.city || '')}</span><span class="hy-nome">${esc(h.name)}</span></span></span>
+          <span class="hgc-nm"><span class="hy-nome">${esc(h.name)}</span></span><span class="hgc-seta" aria-hidden="true">${I.seg}</span></span>
         <span class="hgc-gr ${c1 ? '' : 'duas'}">${c1}${c2}${mapa}</span>
       </summary>${detalhe(h)}</details>`; };
 
-  const bloco = (sg) => {
+  const bloco = (sg, comMarca = true, cidadeE = '') => {
     const n = sg.noites.length, ini = sg.noites[0], fim = maisDia(sg.noites[n - 1]); const x = p2(ini), y = p2(fim);
     const intervalo = x.m === y.m ? `${x.n} a ${y.n} ${y.m}` : `${x.n} ${x.m} a ${y.n} ${y.m}`;
-    const marca = `<div class="hy-marca"><span class="hy-ponto"></span><span class="hy-md">${intervalo}</span><span class="hy-mw">${n} noite${n === 1 ? '' : 's'}</span></div>`;
+    const marca = comMarca ? `<div class="hy-marca"><span class="hy-ponto"></span><span class="hy-md">${intervalo}</span><span class="hy-mw">${n} noite${n === 1 ? '' : 's'}</span></div>` : '';
     if (!sg.hs.length) {
-      const cidade = b.days.find((d) => d.date === ini)?.city?.split('→').pop().trim() || '';
+      const cidade = cidadeE || cidadeNoite(ini);
       return `<li class="hy-bloco semh">${marca}<div class="hy-grupo"><div class="hy-card hy-sem hgc">
         <div class="hy-sum"><span class="hgc-tt"><span class="hgc-foto hgc-foto-sem" aria-hidden="true">${I.cama}</span>
-          <span class="hgc-nm"><span class="hy-cid">${esc(cidade)}</span><span class="hy-nome">Sem hotel reservado</span></span></span>
+          <span class="hgc-nm"><span class="hy-nome">Sem hotel reservado</span><span class="hgc-sub">${intervalo} · ${n} noite${n === 1 ? '' : 's'}</span></span></span>
           ${b.isOwner ? `<span class="hgc-gr so-mapa"><button class="hgc-add" data-act="hotel-novo" data-in="${ini}" data-out="${fim}" data-cidade="${esc(cidade)}">${I.mais} Adicionar hotel</button></span>` : ''}</div></div></div></li>`;
     }
     const temPago = sg.hs.some((h) => h.status === 'pago');
@@ -379,8 +389,12 @@ function vHoteis() {
       <div class="hy-leg"><span><i class="pago"></i>${cont.pago} paga${cont.pago === 1 ? '' : 's'}</span>${b.isOwner ? `<span><i class="pend"></i>${cont.pend} por pagar</span>` : ''}<span><i class="sem"></i>${cont.sem} sem hotel</span></div>
     </section>
     <h2 class="hy-sec">Estadias</h2>
-    <ol class="hy-linha">${segs.map(bloco).join('')}
-      <li class="hy-bloco fim"><div class="hy-marca"><span class="hy-ponto"></span><span class="hy-md">${fimP.n} ${fimP.m}</span></div><div class="hy-fim">Fim da viagem</div></li></ol>
+    <ol class="hc-linha">${estadas.map((e) => { const n = e.noites.length, x = p2(e.noites[0]), y = p2(maisDia(e.noites[n - 1]));
+      const iv = x.m === y.m ? `${x.n} a ${y.n} ${y.m}` : `${x.n} ${x.m} a ${y.n} ${y.m}`;
+      const st = e.segs.every((sg) => sg.hs.some((h) => h.status === 'pago')) ? 'pago' : e.segs.some((sg) => !sg.hs.length) ? 'semh' : 'pend';
+      return `<li class="hc-cidade ${st}"><div class="hc-cab"><span class="hc-ponto" aria-hidden="true"></span><h3>${esc(e.cidade || 'Sem cidade definida')}</h3><span class="hc-iv">${iv} · ${n} noite${n === 1 ? '' : 's'}</span></div>
+        <ol class="hc-sub">${e.segs.map((sg) => bloco(sg, e.segs.length > 1, e.cidade)).join('')}</ol></li>`; }).join('')}
+      <li class="hc-cidade fim"><div class="hc-cab"><span class="hc-ponto" aria-hidden="true"></span><span class="hc-fim">Fim da viagem · ${fimP.n} ${fimP.m}</span></div></li></ol>
     ${fora.length ? `<h2 class="hy-sec hy-sec-pag">Fora das datas da viagem</h2><div class="hy-grupo">${fora.map((h) => { const n = noites(h.check_in, h.check_out);
       return `<div class="hy-marca hy-marca-fora"><span class="hy-md">${dataCurta(h.check_in)} ${h.check_in.slice(0, 4)} a ${dataCurta(h.check_out)} ${h.check_out.slice(0, 4)}</span><span class="hy-mw">${n} noite${n === 1 ? '' : 's'}</span></div>${cartao(h)}`; }).join('')}</div>` : ''}
     ${b.isOwner && ativos.length ? (() => {
