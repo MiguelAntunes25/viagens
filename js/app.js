@@ -1,4 +1,4 @@
-import { sb, sessao, listarViagens, carregarViagem, urlsAssinados, enviarFicheiro, apagarFicheiro, guardarBilhetesOffline, abrirBilhete, convidar, entradaEspecial, fotoWiki } from './data.js';
+import { sb, sessao, listarViagens, carregarViagem, urlsAssinados, enviarFicheiro, apagarFicheiro, guardarBilhetesOffline, abrirBilhete, convidar, entradaEspecial, fotosWiki } from './data.js';
 import { esc, hhmm, dur, dataLonga, dataCurta, intervalo, noites, hojeEm, agoraMin, toMin, mapsDirLink, mapsPlaceLink, mapsQueryLink, mapsRouteLink, comprimir, ics, descarregar, OFFSETS, offsetTxt, KIND_LABEL } from './util.js';
 
 const $app = document.getElementById('app');
@@ -50,7 +50,8 @@ function atividadesDoDia(day) {
   const lista = todas.filter((a) => !a.option_group || a.option_group === escolhida);
   return { lista, grupos, escolhida, labels: Object.fromEntries(grupos.map((g) => [g, todas.find((a) => a.option_group === g)?.option_label || 'Opção ' + g])) };
 }
-const hotelNa = (date) => S.b.hotels.find((h) => h.check_in <= date && date < h.check_out);
+const hotelNa = (date) => S.b.hotels.find((h) => h.status === 'pago' && h.check_in <= date && date < h.check_out);
+const hotelPendente = (date) => S.b.hotels.find((h) => h.status === 'reservado' && h.check_in <= date && date < h.check_out);
 const reservasEm = (date) => S.b.bookings.filter((x) => x.depart_date === date);
 const bilhetes = (f) => S.b.tickets.filter((t) => Object.entries(f).every(([k, v]) => t[k] === v));
 const membro = (id) => S.b.members.find((m) => m.id === id);
@@ -105,14 +106,18 @@ const area = (n, l, v = '') => `<label class="campo"><span>${l}</span><textarea 
 const escolha = (n, l, ops, v) => `<label class="campo"><span>${l}</span><select name="${n}">${ops.map(([k, t]) => `<option value="${esc(k)}" ${String(k) === String(v ?? '') ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
 
 async function completarFotos() {
-  const b = S.b; if (!b?.isOwner || b.offline || sessionStorage.getItem('fotos:' + S.tripId)) return;
-  sessionStorage.setItem('fotos:' + S.tripId, '1');
-  const falta = b.activities.filter((a) => a.wiki_title && !b.photos.some((p) => p.activity_id === a.id && p.external_url));
-  if (!falta.length) return;
-  const cache = {}; const novas = [];
-  for (const a of falta) {
-    try { cache[a.wiki_title] ??= await fotoWiki(a.wiki_title); } catch { cache[a.wiki_title] = null; }
-    const f = cache[a.wiki_title]; if (f) novas.push({ trip_id: S.tripId, activity_id: a.id, external_url: f.url, credit: f.credit, source_url: f.source });
+  const b = S.b; if (!b?.isOwner || b.offline || sessionStorage.getItem('fotos2:' + S.tripId)) return;
+  sessionStorage.setItem('fotos2:' + S.tripId, '1');
+  const MAX = 4; const cache = {}; const novas = [];
+  for (const a of b.activities.filter((x) => x.wiki_title)) {
+    const ja = b.photos.filter((p) => p.activity_id === a.id && p.external_url);
+    if (ja.length >= MAX) continue;
+    try { cache[a.wiki_title] ??= await fotosWiki(a.wiki_title, MAX); } catch { cache[a.wiki_title] = []; }
+    const urls = new Set(ja.map((p) => p.external_url));
+    for (const f of cache[a.wiki_title]) {
+      if (ja.length + novas.filter((n) => n.activity_id === a.id).length >= MAX) break;
+      if (!urls.has(f.url)) novas.push({ trip_id: S.tripId, activity_id: a.id, external_url: f.url, credit: f.credit, source_url: f.source, sort_order: 1 });
+    }
   }
   if (novas.length) { const { error } = await sb.from('activity_photos').insert(novas); if (!error) await recarregar(); }
 }
@@ -179,7 +184,8 @@ async function vDia(n, selId) {
 
   const pc = ehPC();
   const sel = selId || atual?.id || lista.find((a) => a.wiki_title)?.id || lista[0]?.id;
-  const painel = pc && sel ? `<aside class="detalhe ficha ${selId ? 'aberto' : ''}" aria-label="Ficha da atividade">${await vAtividade(sel, true)}</aside>` : '';
+  let painel = '';
+  if (pc && sel) { const fp = await vAtividade(sel, true); painel = `<aside class="detalhe ficha ${fp.semFoto ? 'sem-foto' : ''} ${selId ? 'aberto' : ''}" aria-label="Ficha da atividade">${fp.html}</aside>`; }
   const bilhete = (a) => {
     if (a._r) return `<a class="bil" href="#/v/${S.tripId}/transportes#r-${a._r.id}"><span class="bil-c"><span class="bil-h">${hhmm(a.start_time) || '—'}</span><span class="bil-d">reserva</span></span><span class="bil-c2"><span class="bil-t">${esc(a.title)}</span><span class="bil-s">${esc(a.short || 'Ver reserva')}</span></span></a>`;
     const pos = rk.map[a.ext_key]; const nb = bilhetes({ activity_id: a.id }).length; const ag2 = a === atual;
@@ -191,7 +197,7 @@ async function vDia(n, selId) {
       ${pos ? `<a class="rk" href="#/v/${S.tripId}/ranking/${rk.r.id}/${a.ext_key}" aria-label="${pos}.º lugar em ${rk.total} no ranking, ver ranking"><span>${I.estrela}${pos} em ${rk.total}</span></a>` : ''}</div>`;
   };
 
-  render(`<main class="dia"><div class="dia-col">
+  render(`<main class="dia ${foto ? '' : 'sem-foto'}"><div class="dia-col">
     <div class="foto-dia" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${credito(fotoExt)}${!day.photo_path && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
     <header class="cab">
       <div class="cab-l">
@@ -223,9 +229,10 @@ async function vAtividade(id, comoPainel = false) {
   const urls = await urlsAssinados('photos', fotos.filter((p) => p.path).map((p) => p.path));
   const tk = bilhetes({ activity_id: a.id }); const rem = b.reminders.filter((r) => r.activity_id === a.id);
   const temLocal = a.lat != null || a.maps_query || a.place_name;
+  const semFoto = !fotos.length;
   const html = (`
-    <div class="galeria" id="galeria">${fotos.length ? fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}${b.isOwner ? `<button class="g-del" data-act="apagar-foto" data-id="${p.id}" data-path="${esc(p.path || '')}" aria-label="Apagar foto">✕</button>` : ''}</div>`).join('') : '<div class="g-foto g-vazia"></div>'}</div>
-    <div class="vinheta-f"></div>
+    ${semFoto ? '' : `<div class="galeria" id="galeria">${fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}${b.isOwner ? `<button class="g-del" data-act="apagar-foto" data-id="${p.id}" data-path="${esc(p.path || '')}" aria-label="Apagar foto">✕</button>` : ''}</div>`).join('')}</div>
+    <div class="vinheta-f"></div>`}
     <div class="ficha-top"><a class="b-ic esc" href="#/v/${S.tripId}/dia/${day?.day_number || 1}" aria-label="Voltar ao dia">${I.voltar}</a>
       <span class="g-n">${fotos.length ? `${fotos.length} foto${fotos.length > 1 ? 's' : ''}` : ''}</span>
       ${b.isOwner ? `<label class="b-ic esc" aria-label="Adicionar foto">${I.mais}<input type="file" accept="image/*" multiple hidden data-up="foto-ativ" data-id="${a.id}"></label>` : ''}</div>
@@ -253,8 +260,8 @@ async function vAtividade(id, comoPainel = false) {
         ${a.start_time && day ? `<button class="b-sec" data-act="calendario" data-id="${a.id}">Adicionar ao calendário</button>` : ''}</div>
       ${b.isOwner ? `<button class="b-link centro" data-act="editar-ativ" data-id="${a.id}">Editar esta atividade</button>` : ''}
     </section>`);
-  if (comoPainel) return html.replace(`aria-label="Voltar ao dia">${I.voltar}`, 'aria-label="Fechar a ficha">✕');
-  render(`<main class="ficha">${html}</main>`);
+  if (comoPainel) return { html: html.replace(`aria-label="Voltar ao dia">${I.voltar}`, 'aria-label="Fechar a ficha">✕'), semFoto };
+  render(`<main class="ficha ${semFoto ? 'sem-foto' : ''}">${html}</main>`);
 }
 
 // ---------- resumo (linha do tempo) ----------
@@ -274,7 +281,8 @@ function vResumo() {
       : b.planned.filter((p) => (p.day_numbers || []).includes(d.day_number)).map((p) => p.title).join(' · ');
     const hotel = h ? `<a class="lin ht" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>${esc(h.name)}</a>`
       : d.date >= b.trip.end_date ? `<div class="lin ht"><span class="ic">${I.cama}</span>Regresso a casa</div>`
-      : `<a class="lin ht falta" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>Hotel por adicionar</a>`;
+      : b.isOwner && hotelPendente(d.date) ? `<a class="lin ht falta" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>${esc(hotelPendente(d.date).name)} · pagamento por fazer</a>`
+      : `<a class="lin ht falta" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>Sem hotel reservado</a>`;
     const href = `#/v/${S.tripId}/dia/${d.day_number}`;
     return `<li><a class="rs-num" href="${href}" aria-label="Abrir o dia ${d.day_number}"><small>DIA</small><b>${d.day_number}</b></a>
       <article class="rs-card"><a class="rs-cab" href="${href}"><span class="rs-data">${dataCurta(d.date)}</span><h2>${esc(d.city || '')}</h2><span class="rs-tit">${esc(d.title || '')}</span></a>
@@ -296,41 +304,103 @@ function vResumo() {
 // ---------- hotéis ----------
 function vHoteis() {
   const b = S.b; const hoje = hojeEm(tz());
-  const lista = [...b.hotels].sort((x, y) => String(x.check_in).localeCompare(String(y.check_in)));
-  const cartao = (h) => {
-    const ds = b.days.filter((d) => h.check_in <= d.date && d.date < h.check_out); const tk = bilhetes({ hotel_id: h.id });
-    const n = noites(h.check_in, h.check_out); const pq = porNoiteQuarto(h);
-    const diasCanc = h.cancel_by ? Math.round((new Date(h.cancel_by) - new Date(hoje)) / 86400000) : null;
-    const canc = h.cancel_by ? (diasCanc < 0 ? `<span class="ht-alerta passou">Cancelamento grátis terminou a ${dataCurta(h.cancel_by)}</span>`
-      : diasCanc <= 14 ? `<span class="ht-alerta">Cancelamento grátis até ${dataCurta(h.cancel_by)} · faltam ${diasCanc} dia${diasCanc === 1 ? '' : 's'}</span>` : '') : '';
-    return `<li><article class="ht-card">
-      <header class="ht-cab"><div><span class="ht-cidade">${esc(h.city || ds[0]?.city || 'Hotel')}</span><h2>${esc(h.name)}</h2></div>
-        <span class="ht-noites"><b>${n}</b>${n === 1 ? 'noite' : 'noites'}</span></header>
-      <div class="ht-datas">
-        <div><span>Check-in</span><strong>${dataCurta(h.check_in)}</strong>${h.check_in_time ? `<small>a partir das ${esc(h.check_in_time)}</small>` : ''}</div>
-        <span class="ht-seta" aria-hidden="true">→</span>
-        <div><span>Check-out</span><strong>${dataCurta(h.check_out)}</strong>${h.check_out_time ? `<small>até às ${esc(h.check_out_time)}</small>` : ''}</div>
-      </div>
-      <div class="ht-corpo">
-        <div class="ht-chips">${h.board ? `<span class="ht-chip ouro">${esc(regimeTxt(h.board))}</span>` : ''}<span class="ht-chip">${h.rooms || 1} quarto${(h.rooms || 1) > 1 ? 's' : ''}</span>${h.agency ? `<span class="ht-chip">${esc(h.agency)}</span>` : ''}</div>
-        ${canc}
-        ${h.address ? `<a class="b-maps peq" href="${esc(h.maps_url || mapsDirLink({ maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
-        <dl class="ht-dados">${h.booking_code ? `<div><dt>Reserva</dt><dd>${esc(h.booking_code)}</dd></div>` : ''}${h.phone ? `<div><dt>Telefone</dt><dd><a href="tel:${esc(h.phone)}">${esc(h.phone)}</a></dd></div>` : ''}</dl>
-        ${b.isOwner && (h.total_price != null || h.payment_date || h.cancel_by) ? `<div class="ht-valores">
-          ${h.total_price != null ? `<div><span>Valor total</span><strong>${dinheiro(h.total_price, h.currency)}</strong></div>` : ''}
-          ${pq != null ? `<div><span>Por noite e quarto</span><strong>${dinheiro(pq, h.currency)}</strong></div>` : ''}
-          ${h.payment_date ? `<div><span>Pagamento</span><strong>${dataCurta(h.payment_date)}</strong></div>` : ''}
-          ${h.cancel_by ? `<div><span>Cancelamento grátis até</span><strong>${dataCurta(h.cancel_by)}</strong></div>` : ''}</div>` : ''}
-        ${h.notes ? `<p class="ht-notas">${esc(h.notes)}</p>` : ''}
-        ${documentos(tk, 'hotel_id', h.id)}
-        <div class="ht-rod"><div class="dias-l">${ds.map((d) => `<a href="#/v/${S.tripId}/dia/${d.day_number}">Dia ${d.day_number}</a>`).join('')}</div>
-          ${b.isOwner ? `<button class="b-link" data-act="hotel" data-id="${h.id}">Editar</button>` : ''}</div>
-      </div></article></li>`;
+  const ativos = b.hotels.filter((h) => h.status !== 'cancelado' && (b.isOwner || h.status === 'pago'));
+  const cancelados = b.isOwner ? b.hotels.filter((h) => h.status === 'cancelado') : [];
+  const noitesV = []; for (let d = b.trip.start_date; d < b.trip.end_date; d = maisDia(d)) noitesV.push(d);
+  const cobre = (h, d) => h.check_in <= d && d < h.check_out;
+  const estadoNoite = (d) => { const hs = ativos.filter((h) => cobre(h, d)); return !hs.length ? 'sem' : hs.some((h) => h.status === 'pago') ? 'pago' : 'pend'; };
+  const segs = [];
+  for (const d of noitesV) {
+    const hs = ativos.filter((h) => cobre(h, d)); const u = segs[segs.length - 1];
+    if (!hs.length) { if (u && !u.hs.length) u.noites.push(d); else segs.push({ hs: [], noites: [d] }); continue; }
+    if (u && u.hs.length && hs.some((h) => u.hs.includes(h))) { u.noites.push(d); hs.forEach((h) => { if (!u.hs.includes(h)) u.hs.push(h); }); }
+    else segs.push({ hs: [...hs], noites: [d] });
+  }
+  segs.forEach((sg) => sg.hs.sort((x, y) => String(x.check_in).localeCompare(String(y.check_in)) || String(x.name).localeCompare(String(y.name))));
+  const fimP = { n: Number(b.trip.end_date.slice(8, 10)), m: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(b.trip.end_date.slice(5, 7)) - 1] };
+  const cont = { pago: 0, pend: 0, sem: 0 }; noitesV.forEach((d) => cont[estadoNoite(d)]++);
+  const MS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'], WS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const p2 = (d) => { const x = new Date(d + 'T12:00:00Z'); return { n: x.getUTCDate(), m: MS[x.getUTCMonth()], s: WS[x.getUTCDay()] }; };
+  const dt = (d) => { const x = p2(d); return `${x.s}, ${x.n} ${x.m}`; };
+  const estado = (h) => h.status === 'pago' ? '<span class="hy-est pago">Pago</span>' : '<span class="hy-est pend">Por pagar</span>';
+  const fotoDe = (d) => { const dia = b.days.find((x) => x.date === d); const p = dia && fotoDoDia(dia); return p?.external_url || ''; };
+  const detalhe = (h) => {
+    const tk = bilhetes({ hotel_id: h.id }); const pq = porNoiteQuarto(h);
+    const dc = h.cancel_by ? Math.round((new Date(h.cancel_by) - new Date(hoje)) / 86400000) : null;
+    const canc = h.cancel_by && h.status !== 'pago' ? (dc < 0 ? `<p class="hx-alerta passou">Cancelamento grátis terminou a ${dataCurta(h.cancel_by)}</p>`
+      : `<p class="hx-alerta ${dc <= 14 ? 'perto' : ''}">Cancelamento grátis até ${dataCurta(h.cancel_by)}${dc <= 14 ? ` · faltam ${dc} dia${dc === 1 ? '' : 's'}` : ''}</p>`) : '';
+    const linha = (t, v) => v ? `<div><dt>${t}</dt><dd>${v}</dd></div>` : '';
+    return `<div class="hx-mais">
+      ${canc}
+      <dl class="hx-dl">${linha('Regime', esc(regimeTxt(h.board)))}${linha('Quartos', h.rooms || 1)}${linha('Check-in', h.check_in_time ? 'a partir das ' + esc(h.check_in_time) : '')}${linha('Check-out', h.check_out_time ? 'até às ' + esc(h.check_out_time) : '')}
+        ${linha('Agência', esc(h.agency || ''))}${linha('Reserva', esc(h.booking_code || ''))}${linha('Telefone', h.phone ? `<a href="tel:${esc(h.phone)}">${esc(h.phone)}</a>` : '')}
+        ${b.isOwner ? linha('Valor total', dinheiro(h.total_price, h.currency)) + linha('Sinal', h.deposit != null ? dinheiro(h.deposit, h.currency) : '') + linha('Falta pagar', faltaPagar(h) != null ? (h.status === 'pago' ? 'Nada · pago' : dinheiro(faltaPagar(h), h.currency)) : '') + linha('Por noite e quarto', pq != null ? dinheiro(pq, h.currency) : '') + linha(h.status === 'pago' ? 'Pago a' : 'Pagamento', h.payment_date ? dataCurta(h.payment_date) : '') : ''}</dl>
+      ${h.address ? `<a class="b-maps peq" href="${esc(h.maps_url || mapsDirLink({ maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
+      ${h.notes ? `<p class="hx-notas">${esc(h.notes)}</p>` : ''}
+      ${documentos(tk, 'hotel_id', h.id)}
+      ${b.isOwner ? `<div class="hx-acoes">${h.status !== 'pago' ? `<button class="b-pri b-peq" data-act="hotel-pago" data-id="${h.id}">✓ Pagamento efetuado</button><button class="b-sec b-peq" data-act="hotel-cancelar" data-id="${h.id}">Cancelar reserva</button>` : ''}<button class="b-link" data-act="hotel" data-id="${h.id}">Editar</button></div>` : ''}
+    </div>`;
   };
-  render(`<main class="pag com-nav hoteis-pag"><header class="cab-pag"><div><h1>Hotéis</h1><p>${esc(b.trip.title)} · por ordem de chegada</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="hotel">${I.mais} Adicionar</button>` : ''}</header>
-    ${lista.length ? `<ol class="ht-lista">${lista.map(cartao).join('')}</ol>` : `<p class="vazio">${b.isOwner ? 'Ainda não adicionaste hotéis. Coloca aqui os que fores reservando.' : 'Ainda não há hotéis.'}</p>`}
+  const cartao = (h) => { const ft = fotoDe(h.check_in < b.trip.start_date ? b.trip.start_date : h.check_in);
+    const mapa = `<a class="hgc-mapa" href="${esc(mapsPlaceLink({ maps_url: h.maps_url, maps_query: [h.name, h.address || h.city].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener" aria-label="Ver ${esc(h.name)} no Google Maps">${I.maps}Mapa</a>`;
+    const pago = h.status === 'pago';
+    const c1 = b.isOwner && h.total_price != null ? (pago ? `<span class="hgc-c"><small>Total</small>${dinheiro(h.total_price, h.currency)}</span>` : `<span class="hgc-c"><small>Sinal</small>${dinheiro(h.deposit || 0, h.currency)}</span>`) : '';
+    const c2 = pago ? '<span class="hgc-c hgc-pago"><small>Estado</small>Pago</span>'
+      : `<span class="hgc-c hgc-falta"><small>Falta</small>${b.isOwner && faltaPagar(h) != null ? dinheiro(faltaPagar(h), h.currency) : 'Por pagar'}</span>`;
+    return `<details class="hy-card hgc ${pago ? 'pago' : 'pend'}">
+      <summary><span class="hgc-tt"><span class="hgc-foto" style="${ft ? `background-image:url('${esc(ft)}')` : ''}" aria-hidden="true"></span>
+          <span class="hgc-nm"><span class="hy-cid">${esc(h.city || '')}</span><span class="hy-nome">${esc(h.name)}</span></span></span>
+        <span class="hgc-gr ${c1 ? '' : 'duas'}">${c1}${c2}${mapa}</span>
+      </summary>${detalhe(h)}</details>`; };
+
+  const bloco = (sg) => {
+    const n = sg.noites.length, ini = sg.noites[0], fim = maisDia(sg.noites[n - 1]); const x = p2(ini), y = p2(fim);
+    const intervalo = x.m === y.m ? `${x.n} a ${y.n} ${y.m}` : `${x.n} ${x.m} a ${y.n} ${y.m}`;
+    const marca = `<div class="hy-marca"><span class="hy-ponto"></span><span class="hy-md">${intervalo}</span><span class="hy-mw">${n} noite${n === 1 ? '' : 's'}</span></div>`;
+    if (!sg.hs.length) {
+      const cidade = b.days.find((d) => d.date === ini)?.city?.split('→').pop().trim() || '';
+      return `<li class="hy-bloco semh">${marca}<div class="hy-grupo"><div class="hy-card hy-sem hgc">
+        <div class="hy-sum"><span class="hgc-tt"><span class="hgc-foto hgc-foto-sem" aria-hidden="true">${I.cama}</span>
+          <span class="hgc-nm"><span class="hy-cid">${esc(cidade)}</span><span class="hy-nome">Sem hotel reservado</span></span></span>
+          ${b.isOwner ? `<span class="hgc-gr so-mapa"><button class="hgc-add" data-act="hotel-novo" data-in="${ini}" data-out="${fim}" data-cidade="${esc(cidade)}">${I.mais} Adicionar hotel</button></span>` : ''}</div></div></div></li>`;
+    }
+    const temPago = sg.hs.some((h) => h.status === 'pago');
+    return `<li class="hy-bloco ${temPago ? 'pago' : 'pend'}">${marca}<div class="hy-grupo">
+      ${sg.hs.map(cartao).join('')}</div></li>`;
+  };
+  const fora = ativos.filter((h) => !noitesV.some((d) => cobre(h, d)));
+  render(`<main class="pag com-nav hoteis-pag">
+    <header class="cab-pag"><div><h1>Hotéis</h1><p>${esc(b.trip.title)}</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="hotel">${I.mais} Adicionar</button>` : ''}</header>
+    <section class="hy-resumo" aria-label="Noites da viagem">
+      <div class="hy-r1"><strong>${noitesV.length} noites</strong><span>${p2(b.trip.start_date).n} ${p2(b.trip.start_date).m} → ${fimP.n} ${fimP.m}</span></div>
+      <div class="hy-barra">${noitesV.map((d) => { const x = p2(d), e = estadoNoite(d); return `<span class="hy-seg ${e}" title="${dataCurta(d)}"><i></i><small>${x.n}</small></span>`; }).join('')}</div>
+      <div class="hy-leg"><span><i class="pago"></i>${cont.pago} paga${cont.pago === 1 ? '' : 's'}</span>${b.isOwner ? `<span><i class="pend"></i>${cont.pend} por pagar</span>` : ''}<span><i class="sem"></i>${cont.sem} sem hotel</span></div>
+    </section>
+    <h2 class="hy-sec">Estadias</h2>
+    <ol class="hy-linha">${segs.map(bloco).join('')}
+      <li class="hy-bloco fim"><div class="hy-marca"><span class="hy-ponto"></span><span class="hy-md">${fimP.n} ${fimP.m}</span></div><div class="hy-fim">Fim da viagem</div></li></ol>
+    ${fora.length ? `<h2 class="sec">Fora das datas da viagem</h2><div class="hy-grupo">${fora.map(cartao).join('')}</div>` : ''}
+    ${b.isOwner && ativos.length ? (() => {
+      const dias = (d) => Math.round((new Date(d) - new Date(hoje)) / 86400000);
+      const MSx = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+      const por = ativos.filter((h) => h.status !== 'pago').sort((x, y) => (x.payment_date || '9999').localeCompare(y.payment_date || '9999'));
+      const pagos = ativos.filter((h) => h.status === 'pago');
+      const linha = (h) => { const d = h.payment_date; const n = d ? dias(d) : null;
+        const est = n == null ? '' : n < 0 ? 'passou' : n <= 14 ? 'perto' : '';
+        const nota = n == null ? 'sem data' : n < 0 ? `há ${-n} dia${n === -1 ? '' : 's'}` : n === 0 ? 'hoje' : `em ${n} dia${n === 1 ? '' : 's'}`;
+        const canc = h.cancel_by ? `Cancela até ${Number(h.cancel_by.slice(8, 10))} ${MSx[Number(h.cancel_by.slice(5, 7)) - 1]}` : 'Sem data de cancelamento';
+        return `<li class="hz-l ${est}"><span class="hz-d">${d ? `<b>${Number(d.slice(8, 10))} ${MSx[Number(d.slice(5, 7)) - 1]}</b>` : '<b>—</b>'}<small>${nota}</small></span>
+          <span class="hz-m"><strong>${esc(h.name)}</strong><small>${canc}</small></span>
+          <span class="hz-v">${faltaPagar(h) != null ? dinheiro(faltaPagar(h), h.currency) : '—'}</span></li>`; };
+      return `<h2 class="hy-sec hy-sec-pag">Pagamentos${por.length ? `<span>${por.length} por fazer</span>` : ''}</h2><section class="hz" aria-label="Pagamentos">
+        ${por.length ? `<ol class="hz-lista">${por.map(linha).join('')}</ol>` : '<p class="hz-ok">Todos os hotéis estão pagos.</p>'}
+        ${pagos.length ? `<details class="hz-pagos"><summary>Já pagos (${pagos.length})</summary><ul>${pagos.map((h) => `<li><span>${esc(h.name)}</span><span>${h.total_price != null ? dinheiro(h.total_price, h.currency) : ''}</span></li>`).join('')}</ul></details>` : ''}
+      </section>`;
+    })() : ''}
+    ${cancelados.length ? `<details class="ht-canc"><summary>Reservas canceladas (${cancelados.length})</summary>${cancelados.map((h) => `<div class="ht-canc-i"><span><strong>${esc(h.name)}</strong> · ${dataCurta(h.check_in)} → ${dataCurta(h.check_out)}</span><span><button class="b-link" data-act="hotel" data-id="${h.id}">Ver</button></span></div>`).join('')}</details>` : ''}
     ${nav('hoteis')}</main>`);
 }
+const maisDia = (d) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10); };
 function documentos(tk, campoId, id) {
   const b = S.b;
   return `<div class="tk-grid">${tk.map((t) => `<span class="tk-w"><button class="tk" data-act="ver-bilhete" data-path="${esc(t.path)}">${I.qr}${esc(membro(t.member_id)?.display_name || t.label || 'Documento')}</button>${b.isOwner ? `<button class="tk-x" data-act="apagar-bilhete" data-id="${t.id}" data-path="${esc(t.path)}" aria-label="Apagar">✕</button>` : ''}</span>`).join('')}
@@ -461,10 +531,11 @@ function vInstalar() {
 const REGIMES = [['', '—'], ['so_alojamento', 'Só alojamento'], ['pequeno_almoco', 'Pequeno-almoço'], ['meia_pensao', 'Meia pensão'], ['pensao_completa', 'Pensão completa'], ['tudo_incluido', 'Tudo incluído']];
 const regimeTxt = (k) => REGIMES.find(([v]) => v === k)?.[1] || '';
 const dinheiro = (v, moeda = 'EUR') => v == null || v === '' ? '' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: moeda || 'EUR' }).format(Number(v));
+const faltaPagar = (h) => h.status === 'pago' ? 0 : h.total_price == null || h.total_price === '' ? null : Math.max(0, Number(h.total_price) - (Number(h.deposit) || 0));
 const porNoiteQuarto = (h) => { const n = h.check_in && h.check_out ? noites(h.check_in, h.check_out) : 0; const q = Number(h.rooms) || 1;
   return h.total_price && n > 0 ? Number(h.total_price) / n / q : null; };
-function fHotel(id) {
-  const h = S.b.hotels.find((x) => x.id === id) || { rooms: 1, currency: 'EUR' };
+function fHotel(id, pre = {}) {
+  const h = S.b.hotels.find((x) => x.id === id) || { rooms: 1, currency: 'EUR', status: 'reservado', ...pre };
   folha(id ? 'Editar hotel' : 'Novo hotel',
     campo('name', 'Nome', h.name, 'text', 'required') + campo('city', 'Cidade', h.city, 'text', 'required')
     + campo('address', 'Morada', h.address) + campo('maps_url', 'Link do Google Maps (opcional)', h.maps_url, 'url')
@@ -472,19 +543,29 @@ function fHotel(id) {
     + `<div class="duas">${campo('check_in_time', 'Hora check-in', h.check_in_time, 'time')}${campo('check_out_time', 'Hora check-out', h.check_out_time, 'time')}</div>`
     + `<div class="duas">${escolha('board', 'Regime', REGIMES, h.board || '')}${campo('rooms', 'N.º de quartos', h.rooms ?? 1, 'number', 'min="1" step="1" required')}</div>`
     + `<div class="duas">${campo('total_price', 'Valor total', h.total_price ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')}${escolha('currency', 'Moeda', [['EUR', 'Euro (€)'], ['GBP', 'Libra (£)'], ['USD', 'Dólar ($)'], ['JPY', 'Iene (¥)'], ['HUF', 'Florim (Ft)'], ['CHF', 'Franco suíço']], h.currency || 'EUR')}</div>`
+    + campo('deposit', 'Sinal pago', h.deposit ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')
     + '<div class="calculo" id="calc-noite" aria-live="polite"></div>'
     + `<div class="duas">${campo('payment_date', 'Data de pagamento', h.payment_date, 'date')}${campo('cancel_by', 'Cancelamento grátis até', h.cancel_by, 'date')}</div>`
     + campo('agency', 'Agência / plataforma', h.agency, 'text', 'placeholder="Ex.: Booking, direto no hotel"')
+    + escolha('status', 'Estado da reserva', [['reservado', 'Reservado, pagamento por fazer'], ['pago', 'Pago (conta nos dias da viagem)'], ['cancelado', 'Cancelado']], h.status || 'reservado')
     + `<div class="duas">${campo('booking_code', 'Código de reserva', h.booking_code)}${campo('phone', 'Telefone', h.phone, 'tel')}</div>` + area('notes', 'Notas', h.notes)
     + (id ? '<button type="button" class="b-perigo" data-apagar>Apagar hotel</button>' : ''),
   async (f) => { f.trip_id = S.tripId;
-    for (const k of ['maps_url', 'check_in_time', 'check_out_time', 'board', 'payment_date', 'cancel_by', 'total_price', 'agency', 'city']) if (!f[k]) f[k] = null;
-    f.rooms = Number(f.rooms) || 1; if (f.total_price != null) f.total_price = Number(f.total_price);
+    for (const k of ['maps_url', 'check_in_time', 'check_out_time', 'board', 'payment_date', 'cancel_by', 'total_price', 'agency', 'city', 'deposit']) if (!f[k]) f[k] = null;
+    if (f.deposit != null) f.deposit = Number(f.deposit);
+    if (f.deposit != null && f.total_price != null && f.deposit > f.total_price) throw new Error('O sinal não pode ser maior do que o valor total.');
+    f.rooms = Number(f.rooms) || 1; if (f.status === 'pago' && !(S.b.hotels.find((x) => x.id === id) || {}).paid_at) f.paid_at = new Date().toISOString(); if (f.total_price != null) f.total_price = Number(f.total_price);
     if (f.check_out <= f.check_in) throw new Error('O check-out tem de ser depois do check-in.');
+    if (f.status !== 'cancelado') { const outra = S.b.hotels.find((x) => x.id !== id && x.status !== 'cancelado' && x.check_in < f.check_out && f.check_in < x.check_out && (x.check_in !== f.check_in || x.check_out !== f.check_out));
+      if (outra) throw new Error(`Esta reserva sobrepõe-se a ${outra.name} (${dataCurta(outra.check_in)} → ${dataCurta(outra.check_out)}). Reservas para as mesmas noites têm de ter o mesmo check-in e check-out.`); }
+    if (f.status === 'pago' && S.b.hotels.some((x) => x.id !== id && x.status === 'pago' && x.check_in < f.check_out && f.check_in < x.check_out))
+      throw new Error('Já há uma reserva paga para algumas destas noites. Só pode haver uma paga por noite: cancela a outra primeiro.');
     await op(id ? sb.from('hotels').update(f).eq('id', id) : sb.from('hotels').insert(f), 'Hotel guardado.'); });
   const form = document.querySelector('.folha form'); const out = document.getElementById('calc-noite');
   const calc = () => { const v = Object.fromEntries(new FormData(form)); const p = porNoiteQuarto(v); const n = v.check_in && v.check_out ? noites(v.check_in, v.check_out) : 0;
-    out.innerHTML = p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiro(p, v.currency)}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>'; };
+    const fp = faltaPagar(v);
+    out.innerHTML = (p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiro(p, v.currency)}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>')
+      + (fp != null ? `<span class="calc-l2">${v.status === 'pago' ? 'Pago na totalidade' : 'Falta pagar'}</span><strong class="calc-l2">${dinheiro(fp, v.currency)}</strong>` : ''); };
   form.addEventListener('input', calc); calc();
   ligarApagar('hotels', id, 'Apagar este hotel?');
 }
@@ -579,6 +660,15 @@ document.addEventListener('click', async (e) => {
       return descarregar(ics({ titulo: at.title, data: d.date, hora: hhmm(at.start_time), duracao: at.duration_min || 60, local: at.place_name || at.maps_query || '', alarmes: al.length ? al : [60], tz: tz() }), `${at.title}.ics`); }
     if (a === 'editar-ativ') return fAtividade(id);
     if (a === 'hotel') return fHotel(id);
+    if (a === 'hotel-novo') return fHotel(null, { check_in: el.dataset.in, check_out: el.dataset.out, city: el.dataset.cidade || null });
+    if (a === 'hotel-pago') { const h = S.b.hotels.find((x) => x.id === id);
+      const outra = S.b.hotels.find((x) => x.id !== id && x.status === 'pago' && x.check_in < h.check_out && h.check_in < x.check_out);
+      if (outra) { if (!confirm(`Já há uma reserva paga para estas noites: ${outra.name} (${dataCurta(outra.check_in)} → ${dataCurta(outra.check_out)}).\n\nSó pode haver uma reserva paga por noite. Queres marcar ${outra.name} como cancelada e ${h.name} como paga?`)) return;
+        const { error } = await sb.from('hotels').update({ status: 'cancelado' }).eq('id', outra.id); if (error) throw error; }
+      else if (!confirm(`Confirmar o pagamento de ${h.name}? O hotel passa a constar nos dias da viagem.`)) return;
+      return op(sb.from('hotels').update({ status: 'pago', paid_at: new Date().toISOString(), payment_date: h.payment_date || hojeEm(tz()) }).eq('id', id), 'Pagamento registado. O hotel já aparece nos dias.'); }
+    if (a === 'hotel-cancelar') { if (!confirm('Marcar esta reserva como cancelada? Fica guardada em "Reservas canceladas".')) return;
+      return op(sb.from('hotels').update({ status: 'cancelado' }).eq('id', id), 'Reserva marcada como cancelada.'); }
     if (a === 'reserva') return fReserva(id);
     if (a === 'escolher-membro') return fMembroDoc(el.dataset.campo, id);
     if (a === 'convidar') return fConvidar();

@@ -92,19 +92,26 @@ export async function abrirBilhete(path) {
 
 // fotos livres da Wikimedia Commons (a partir do artigo da Wikipédia de cada local)
 const semHtml = (s) => String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-export async function fotoWiki(titulo) {
-  const k = 'wiki:' + titulo;
+const MAU = /(logo|map|mapa|plan|flag|coat|icon|wappen|location|locator|diagram|seal|symbol|signature|\.svg|\.png|\.gif|\.tif)/i;
+export async function fotosWiki(titulo, max = 4) {
+  const k = 'wiki4:' + titulo;
   try { const c = localStorage.getItem(k); if (c) return JSON.parse(c); } catch { /* sem cache */ }
-  const r1 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=name&titles=${encodeURIComponent(titulo)}`).then((r) => r.json());
-  const nome = Object.values(r1?.query?.pages || {})[0]?.pageimage;
-  let res = null;
-  if (nome) {
-    const r2 = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1280&titles=${encodeURIComponent('File:' + nome)}`).then((r) => r.json());
-    const p = Object.values(r2?.query?.pages || {})[0]; const ii = p?.imageinfo?.[0];
-    const lic = ii?.extmetadata?.LicenseShortName?.value || '';
-    // só imagens alojadas na Commons e com licença livre (exclui imagens "fair use" da Wikipédia)
-    if (ii && p.missing === undefined && lic && !/fair use|non-free/i.test(lic)) {
-      res = { url: ii.thumburl || ii.url, credit: `${semHtml(ii.extmetadata?.Artist?.value) || 'Autor na Wikimedia Commons'} · ${lic}`, source: ii.descriptionurl };
+  const api = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1';
+  const r1 = await fetch(`${api}&prop=pageimages|images&piprop=name&imlimit=60&titles=${encodeURIComponent(titulo)}`).then((r) => r.json());
+  const pg = Object.values(r1?.query?.pages || {})[0] || {};
+  const nomes = [pg.pageimage, ...(pg.images || []).map((x) => x.title.replace(/^File:/, ''))].filter(Boolean)
+    .filter((n, i, a) => a.indexOf(n) === i && /\.jpe?g$/i.test(n) && !MAU.test(n)).slice(0, 12);
+  const res = [];
+  if (nomes.length) {
+    const r2 = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=1280&titles=${encodeURIComponent(nomes.map((n) => 'File:' + n).join('|'))}`).then((r) => r.json());
+    const paginas = Object.values(r2?.query?.pages || {});
+    for (const n of nomes) {
+      const p = paginas.find((x) => x.title?.replace(/^File:/, '').replace(/_/g, ' ') === n.replace(/_/g, ' '));
+      const ii = p?.imageinfo?.[0]; const lic = ii?.extmetadata?.LicenseShortName?.value || '';
+      // só imagens alojadas na Commons, com licença livre e em formato paisagem razoável
+      if (!ii || p.missing !== undefined || !lic || /fair use|non-free/i.test(lic) || (ii.width && ii.width < 800)) continue;
+      res.push({ url: ii.thumburl || ii.url, credit: `${semHtml(ii.extmetadata?.Artist?.value) || 'Autor na Wikimedia Commons'} · ${lic}`, source: ii.descriptionurl });
+      if (res.length >= max) break;
     }
   }
   try { localStorage.setItem(k, JSON.stringify(res)); } catch { /* cheio */ }
