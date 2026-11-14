@@ -1,11 +1,27 @@
 import { sb, sessao, listarViagens, carregarViagem, urlsAssinados, enviarFicheiro, apagarFicheiro, guardarBilhetesOffline, abrirBilhete, convidar, entradaEspecial, fotosWiki } from './data.js';
-import { esc, hhmm, dur, dataLonga, dataCurta, intervalo, noites, hojeEm, agoraMin, toMin, mapsDirLink, mapsPlaceLink, mapsQueryLink, mapsRouteLink, comprimir, ics, descarregar, OFFSETS, offsetTxt, KIND_LABEL } from './util.js';
+import { esc, hhmm, dur, dataLonga, dataCurta, intervalo, noites, hojeEm, agoraMin, toMin, mapsPlaceLink, mapsQueryLink, comprimir, ics, descarregar, OFFSETS, offsetTxt, KIND_LABEL } from './util.js';
 
 const $app = document.getElementById('app');
 const S = { b: null, tripId: null, trips: null };
 
 // ---------- ícones ----------
+const TSV = {
+  aviao: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  comboio: '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
+  metro: '<path d="M2 22V12a10 10 0 1 1 20 0v10"/><path d="M15 6.8v1.4a3 2.8 0 1 1-6 0V6.8"/><path d="M10 15h.01"/><path d="M14 15h.01"/><path d="M10 19a4 4 0 0 1-4-4v-3a6 6 0 1 1 12 0v3a4 4 0 0 1-4 4Z"/><path d="m9 19-2 3"/><path d="m16 22-2-3"/>',
+  autocarro: '<path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+  tram: '<rect width="16" height="16" x="4" y="3" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><path d="m8 19-2 3"/><path d="m18 22-2-3"/><path d="M8 15h.01"/><path d="M16 15h.01"/>',
+  barco: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.4 18 21 13l-9-4-9 4 1.6 5"/><path d="M12 9V3"/><path d="M8 5h8"/>',
+  taxi: '<path d="M10 2h4"/><path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.6 5H8.4a2 2 0 0 0-1.9 1.3L5 10 3 8"/><path d="M7 14h.01"/><path d="M17 14h.01"/><rect width="18" height="8" x="3" y="10" rx="2"/><path d="M5 18v2"/><path d="M19 18v2"/>',
+};
+const MODOS = { aviao: 'Avião', comboio: 'Comboio', metro: 'Metro', autocarro: 'Autocarro', tram: 'Elétrico', barco: 'Barco', taxi: 'Táxi ou transfer' };
+const icT = (m, p = '') => `<span class="ict ${m || 'comboio'} ${p}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TSV[m] || TSV.comboio}</svg></span>`;
+const EST_T = { por_comprar: 'Por comprar', pago: 'Pago', compra_no_dia: 'Compra no dia', incluido: 'Incluído' };
+const estT = (st) => `<span class="estT ${st || 'por_comprar'}">${EST_T[st] || EST_T.por_comprar}</span>`;
 const I = {
+  ouvir: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+  pausa: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+  parar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   maps: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
   mapa: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
   cama: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="1.6"/></svg>',
@@ -17,7 +33,7 @@ const I = {
   mais: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
 };
 const LOGO = '<svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true"><polygon points="16,28 38,20 38,74 16,82" fill="#E3D3B6"/><polygon points="38,20 62,28 62,82 38,74" fill="#CDB993"/><polygon points="62,28 84,20 84,74 62,82" fill="#E3D3B6"/><path d="M22 66 Q 32 50 44 57 T 66 47" fill="none" stroke="#13283A" stroke-width="3" stroke-dasharray="2 4" stroke-linecap="round"/><path d="M70 30 a9 9 0 0 1 9 9 c0 7 -9 15 -9 15 s-9 -8 -9 -15 a9 9 0 0 1 9 -9z" fill="#13283A"/><circle cx="70" cy="39" r="3.2" fill="#E3D3B6"/></svg>';
-const NAV = [['dia', 'Dia', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], ['resumo', 'Resumo', '<path d="M4 6h16M4 12h16M4 18h10"/>'],
+const NAV = [['resumo', 'Resumo', '<path d="M4 6h16M4 12h16M4 18h10"/>'], ['dia', 'Dia', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
   ['hoteis', 'Hotéis', '<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/>'], ['transportes', 'Transportes', '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l2-4M16 21l-2-4"/>'],
   ['mais', 'Mais', '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>']];
 
@@ -52,7 +68,8 @@ function atividadesDoDia(day) {
 }
 const hotelNa = (date) => S.b.hotels.find((h) => h.status === 'pago' && h.check_in <= date && date < h.check_out);
 const hotelPendente = (date) => S.b.hotels.find((h) => h.status === 'reservado' && h.check_in <= date && date < h.check_out);
-const reservasEm = (date) => S.b.bookings.filter((x) => x.depart_date === date);
+const reservasEm = (date) => S.b.bookings.filter((x) => !x.activity_ext_key && x.depart_date === date);
+const fichaT = (a) => S.b.bookings.find((x) => x.activity_ext_key === a.ext_key);
 const bilhetes = (f) => S.b.tickets.filter((t) => Object.entries(f).every(([k, v]) => t[k] === v));
 const membro = (id) => S.b.members.find((m) => m.id === id);
 const pessoas = () => S.b.members;
@@ -61,11 +78,11 @@ const pessoas = () => S.b.members;
 const ehPC = () => matchMedia('(min-width: 1000px)').matches;
 function lateral() {
   const b = S.b, id = S.tripId, p = location.hash.replace(/^#\/?/, '').split('/');
-  const v = p[2] || 'dia';
-  const ativo = ['dia', 'a'].includes(v) ? 'dia' : ['ranking', 'reservas', 'resumo', 'hoteis', 'transportes'].includes(v) ? v : 'mais';
+  const v = p[2] || 'resumo';
+  const ativo = v === 'a' && p[4] === 'r' ? 'ranking' : ['dia', 'a'].includes(v) ? 'dia' : ['ranking', 'reservas', 'resumo', 'hoteis', 'transportes'].includes(v) ? v : 'mais';
   const diaAtual = Number(sessionStorage.getItem('ultimoDia:' + id)) || diaDeHoje() || 1;
   const rk = b.rankings.find((r) => r.is_primary) || b.rankings[0];
-  const it = [['dia', 'Dia', `#/v/${id}/dia/${diaAtual}`], ['resumo', 'Resumo'], ['hoteis', 'Hotéis'], ['transportes', 'Transportes'],
+  const it = [['resumo', 'Resumo'], ['dia', 'Dia', `#/v/${id}/dia/${diaAtual}`], ['hoteis', 'Hotéis'], ['transportes', 'Transportes'],
     ...(rk ? [['ranking', 'Ranking', `#/v/${id}/ranking/${rk.id}`]] : []), ...(b.isOwner ? [['reservas', 'Reservas']] : []), ['mais', 'Mais']];
   return `<aside class="lateral" aria-label="Navegação">
     <a class="lat-marca" href="#/">${LOGO}<span>Roteiros Miguel</span></a>
@@ -79,7 +96,19 @@ function render(html) {
   document.body.classList.toggle('pc', ehPC() && !!naViagem);
   $app.innerHTML = ehPC() && naViagem ? `<div class="pc-app">${lateral()}<div class="pc-main">${html}</div></div>` : html;
   window.scrollTo(0, 0);
+  ajustarTitulos();
+  leitorLigar();
 }
+// o nome das cidades fica sempre numa só linha: a letra encolhe até caber
+function ajustarTitulos() {
+  document.querySelectorAll('.cab-titulo').forEach(h => {
+    h.style.fontSize = '';
+    let t = parseFloat(getComputedStyle(h).fontSize);
+    while (h.scrollWidth > h.clientWidth + 1 && t > 13) { t -= 1; h.style.fontSize = t + 'px'; }
+  });
+}
+window.addEventListener('resize', ajustarTitulos);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustarTitulos);
 // aspeto: automático, dia ou noite
 const temaAtual = () => localStorage.getItem('tema') || 'auto';
 const temaTxt = () => ({ auto: '◐ Aspeto: automático', light: '☀ Aspeto: dia', dark: '☾ Aspeto: noite' })[temaAtual()];
@@ -88,6 +117,20 @@ aplicarTema();
 function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.role = 'status'; t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 3200);
+}
+// Gestão das fotografias de uma atividade (só o dono): acrescentar e apagar, com confirmação
+async function gerirFotos(id) {
+  const fotos = S.b.photos.filter((p) => p.activity_id === id);
+  const urls = await urlsAssinados('photos', fotos.filter((p) => p.path).map((p) => p.path));
+  const w = document.createElement('div'); w.className = 'folha-fundo';
+  w.innerHTML = `<div class="folha" role="dialog" aria-modal="true" aria-label="Fotografias"><div class="folha-top"><h2>Fotografias</h2><button class="b-ic" data-fechar aria-label="Fechar">✕</button></div>
+    ${fotos.length ? `<div class="gf-grelha">${fotos.map((p) => `<figure class="gf-item"><div class="gf-img" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')"></div>
+      <figcaption>${p.external_url ? 'Fotografia livre' : 'Tua'}</figcaption>
+      <button class="gf-apagar" data-act="apagar-foto" data-id="${p.id}" data-path="${esc(p.path || '')}">Apagar</button></figure>`).join('')}</div>`
+      : '<p class="vazio">Ainda não há fotografias deste local.</p>'}
+    <label class="b-pri b-larga gf-add">${I.mais} Adicionar fotografias<input type="file" accept="image/*" multiple hidden data-up="foto-ativ" data-id="${id}"></label></div>`;
+  document.body.appendChild(w);
+  w.addEventListener('click', (e) => { if (e.target.closest('[data-fechar]')) w.remove(); });
 }
 function folha(titulo, corpo, aoGuardar) {
   const w = document.createElement('div'); w.className = 'folha-fundo';
@@ -180,7 +223,7 @@ async function vDia(n, selId) {
   let foto = '', fotoExt = null;
   if (day.photo_path) foto = (await urlsAssinados('photos', [day.photo_path]))[day.photo_path] || '';
   else { fotoExt = fotoDoDia(day); foto = fotoExt?.external_url || ''; }
-  const rota = mapsRouteLink(lista.filter((a) => a.kind !== 'transport' && (a.lat != null || a.maps_query)));
+  const rota = lista.some((a) => a.lat != null) ? `#/v/${S.tripId}/mapa/${day.day_number}` : null;
   const prev = b.days.find((d) => d.day_number === day.day_number - 1), next = b.days.find((d) => d.day_number === day.day_number + 1);
 
   const pc = ehPC();
@@ -194,20 +237,20 @@ async function vDia(n, selId) {
       <span class="bil-c"><span class="bil-h">${hhmm(a.start_time) || '—'}</span><span class="bil-d">${dur(a.duration_min)}</span></span>
       <span class="bil-c2">${ag2 ? '<span class="bil-ag">A decorrer</span>' : ''}<span class="bil-t">${esc(a.title)}</span>
       ${a.short ? `<span class="bil-s">${esc(a.short)}</span>` : ''}
-      ${a.needs_ticket || nb ? `<span class="bil-tk">${nb}/${pessoas().length} bilhetes</span>` : ''}</span></a>
+      ${a.transport_mode && fichaT(a) ? `<span class="bil-tr">${icT(a.transport_mode, 'mini')}${estT(fichaT(a).status)}</span>` : a.needs_ticket || nb ? `<span class="bil-tk">${nb}/${pessoas().length} bilhetes</span>` : ''}</span></a>
       ${pos ? `<a class="rk" href="#/v/${S.tripId}/ranking/${rk.r.id}/${a.ext_key}" aria-label="${pos}.º lugar em ${rk.total} no ranking, ver ranking"><span>${I.estrela}${pos} em ${rk.total}</span></a>` : ''}</div>`;
   };
 
   render(`<main class="dia ${foto ? '' : 'sem-foto'}"><div class="dia-col">
     <div class="foto-dia" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${credito(fotoExt)}${!day.photo_path && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
-    <header class="cab">
-      <div class="cab-l">
-        <div class="cab-nav">${prev ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${prev.day_number}" aria-label="Dia anterior">${I.voltar}</a>` : '<span class="b-mini off"></span>'}
-        <h1>${esc(day.city || '')}</h1>${next ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${next.day_number}" aria-label="Dia seguinte">${I.seg}</a>` : ''}</div>
+    <header class="cab cab3">
+      <h1 class="cab-titulo">${esc(day.city || '')}</h1>
+      <div class="cab-linha">
+        <div class="cab-lado">${prev ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${prev.day_number}" aria-label="Dia anterior">${I.voltar}</a>` : ''}</div>
         <div class="cab-data">${dataLonga(day.date)}</div>
-        <a class="cab-hotel" href="#/v/${S.tripId}/hoteis">${I.cama}${hotel ? esc(hotel.name) : 'Hotel por adicionar'}</a>
+        <div class="cab-lado dir">${next ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${next.day_number}" aria-label="Dia seguinte">${I.seg}</a>` : ''}</div>
       </div>
-      ${rota ? `<a class="b-mapa" href="${esc(rota)}" target="_blank" rel="noopener" aria-label="Abrir o mapa do dia">${I.mapa}Mapa</a>` : ''}
+      ${rota ? `<a class="cab-mapa" href="${rota}">${I.mapa}<span>Mapa do dia</span></a>` : ''}
     </header>
     <section class="painel">
       <div class="pega" aria-hidden="true"></div>
@@ -216,12 +259,15 @@ async function vDia(n, selId) {
         ${b.isOwner && !b.trip.info?.escolhas?.[day.ext_key] ? `<button class="b-link" data-act="fixar-opcao" data-dia="${day.ext_key}" data-g="${escolhida}">Decidir: ficar com a ${esc(labels[escolhida].split('·')[0].trim())}</button>` : ''}` : ''}
       ${day.intro ? `<details class="intro"><summary>Sobre o dia</summary><p>${esc(day.intro).replace(/\n/g, '<br>')}</p>${day.rain_alt ? `<p class="chuva"><strong>Se chover:</strong> ${esc(day.rain_alt)}</p>` : ''}</details>` : ''}
       <div class="bils">${itens.map(bilhete).join('') || '<p class="vazio">Sem atividades neste dia.</p>'}</div>
+      ${day.date < b.trip.end_date ? `<a class="dormida ${hotel ? '' : 'sem'}" href="#/v/${S.tripId}/hoteis"><span class="dormida-ic" aria-hidden="true">${I.cama}</span><span class="dormida-t"><small>Dormida</small><strong>${hotel ? esc(hotel.name) : 'Sem hotel reservado'}</strong></span><span class="dormida-s" aria-hidden="true">${I.seg}</span></a>` : ''}
     </section></div>${painel}
     ${nav('dia')}</main>`);
 }
 
 // ---------- ficha da atividade ----------
-async function vAtividade(id, comoPainel = false) {
+async function vAtividade(id, comoPainel = false, voltar = null) {
+  const _at = S.b.activities.find((x) => x.id === id);
+  const audioGuia = _at?.guide_audio_path ? (await urlsAssinados('audio', [_at.guide_audio_path]))[_at.guide_audio_path] : null;
   const b = S.b; const a = b.activities.find((x) => x.id === id); if (!a) return vDia(1);
   const day = b.days.find((d) => d.id === a.day_id); const rk = rankPrincipal(); const pos = rk.map[a.ext_key];
   const outros = b.rankingItems.filter((i) => (i.activity_ext_keys || []).includes(a.ext_key) && i.ranking_id !== rk.r?.id)
@@ -232,34 +278,38 @@ async function vAtividade(id, comoPainel = false) {
   const temLocal = a.lat != null || a.maps_query || a.place_name;
   const semFoto = !fotos.length;
   const html = (`
-    ${semFoto ? '' : `<div class="galeria" id="galeria">${fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}${b.isOwner ? `<button class="g-del" data-act="apagar-foto" data-id="${p.id}" data-path="${esc(p.path || '')}" aria-label="Apagar foto">✕</button>` : ''}</div>`).join('')}</div>
+    ${semFoto ? '' : `<div class="galeria" id="galeria">${fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}</div>`).join('')}</div>
     <div class="vinheta-f"></div>`}
-    <div class="ficha-top"><a class="b-ic esc" href="#/v/${S.tripId}/dia/${day?.day_number || 1}" aria-label="Voltar ao dia">${I.voltar}</a>
-      <span class="g-n">${fotos.length ? `${fotos.length} foto${fotos.length > 1 ? 's' : ''}` : ''}</span>
-      ${b.isOwner ? `<label class="b-ic esc" aria-label="Adicionar foto">${I.mais}<input type="file" accept="image/*" multiple hidden data-up="foto-ativ" data-id="${a.id}"></label>` : ''}</div>
+    <div class="ficha-top"><a class="b-ic esc" href="${voltar || `#/v/${S.tripId}/dia/${day?.day_number || 1}`}" aria-label="Voltar ao dia">${I.voltar}</a>
+      <span class="g-n">${fotos.length ? `${fotos.length} foto${fotos.length > 1 ? 's' : ''}` : ''}</span></div>
     <section class="ficha-corpo">
       <div class="caixa azul">
         <div class="cx-l1"><span>${dataLonga(day?.date)}${day?.city ? ', ' + esc(day.city) : ''}</span>
           ${pos ? `<a class="rk-chip" href="#/v/${S.tripId}/ranking/${rk.r.id}/${a.ext_key}" aria-label="${pos}.º lugar em ${rk.total} no ranking">${I.estrela}${pos} em ${rk.total}</a>` : ''}</div>
         <h1>${esc(a.title)}</h1>
         <div class="chips">${a.start_time ? `<span class="chip ouro">${hhmm(a.start_time)}</span>` : ''}${a.duration_min ? `<span class="chip">${dur(a.duration_min)}</span>` : ''}${a.place_name ? `<span class="chip">${esc(a.place_name)}</span>` : ''}</div>
-        ${temLocal ? `<a class="b-maps" href="${esc(mapsDirLink(a))}" target="_blank" rel="noopener">${I.maps}Ir com o Google Maps</a>
-        <a class="b-link claro" href="${esc(mapsPlaceLink(a))}" target="_blank" rel="noopener">Ver o local e fotos no Google Maps</a>` : ''}
+        ${temLocal ? `<a class="b-maps" href="${esc(mapsPlaceLink(a))}" target="_blank" rel="noopener">${I.maps}Abrir no Google Maps</a>` : ''}
         ${outros.length ? `<div class="outros-rk">${outros.map((o) => `<a href="#/v/${S.tripId}/ranking/${o.r.id}/${a.ext_key}">${o.i.position} em ${o.tot} · ${esc(o.r.title)}</a>`).join('')}</div>` : ''}
       </div>
+      ${a.transport_mode && fichaT(a) ? (() => { const f = fichaT(a); return `<div class="caixa tr-cx"><div class="cx-h"><h2>${MODOS[a.transport_mode]}</h2>${estT(f.status)}</div>
+        <p class="rota"><strong>${esc(a.from_place || '')}</strong> ${hhmm(a.start_time)} → <strong>${esc(a.to_place || '')}</strong> ${hhmm(a.arrive_time)}</p>
+        <p class="meta">${esc([f.carrier, f.number && (a.transport_mode === 'aviao' ? 'Voo ' : '') + f.number, f.terminal].filter(Boolean).join(' · '))}</p>
+        <button class="b-sec" data-act="ficha-transporte" data-id="${f.id}">${b.isOwner ? 'Reserva, valores e bilhetes' : 'Ver bilhetes'}</button></div>`; })() : ''}
       ${a.description || a.short ? `<div class="caixa"><h2>Sobre a visita</h2><p>${esc(a.description || a.short)}</p></div>` : ''}
+      ${a.guide ? guiaHtml(a.guide, audioGuia, a.title) : ''}
       ${(a.how_to || []).length ? `<div class="caixa"><h2>Como ir</h2><ol class="passos">${a.how_to.map((p) => `<li>${esc(p)}</li>`).join('')}</ol></div>` : ''}
       ${(a.meal_options || []).length ? `<div class="caixa"><h2>Opções</h2><ul class="refeicoes">${a.meal_options.map((m) => `<li><a href="${esc(mapsQueryLink(m.q || m.name))}" target="_blank" rel="noopener"><span class="rf-n">${esc(m.name)}</span><span class="rf-t">${esc(m.type || '')}</span></a></li>`).join('')}</ul></div>` : ''}
-      ${a.needs_ticket || tk.length || b.isOwner ? `<div class="caixa"><div class="cx-h"><h2>Bilhetes</h2><span class="ok">${tk.length} de ${pessoas().length}</span></div>
+      ${a.needs_ticket || tk.length || b.isOwner ? `<details class="caixa dobra" ${tk.length ? 'open' : ''}><summary class="cx-h"><h2>Bilhetes</h2><span class="ok">${tk.length} de ${pessoas().length}</span></summary>
         <div class="tk-grid">${pessoas().map((m) => { const t = tk.find((x) => x.member_id === m.id);
           return t ? `<span class="tk-w"><button class="tk" data-act="ver-bilhete" data-path="${esc(t.path)}">${I.qr}${esc(m.display_name)}</button>${b.isOwner ? `<button class="tk-x" data-act="apagar-bilhete" data-id="${t.id}" data-path="${esc(t.path)}" aria-label="Apagar bilhete de ${esc(m.display_name)}">✕</button>` : ''}</span>`
             : b.isOwner ? `<label class="tk tk-falta">${I.mais}${esc(m.display_name)}<input type="file" accept="image/*,application/pdf" hidden data-up="bilhete" data-campo="activity_id" data-id="${a.id}" data-membro="${m.id}"></label>`
-            : `<span class="tk tk-falta">${esc(m.display_name)}: sem bilhete</span>`; }).join('')}</div></div>` : ''}
+            : `<span class="tk tk-falta">${esc(m.display_name)}: sem bilhete</span>`; }).join('')}</div></details>` : ''}
       ${(a.tips || []).length ? `<div class="caixa"><h2>Dicas</h2>${a.tips.map((t) => `<p class="${t.startsWith('⚠') ? 'alerta' : ''}">${esc(t)}</p>`).join('')}</div>` : ''}
-      <div class="caixa"><div class="cx-h"><h2>Lembretes</h2>${b.isOwner ? `<button class="b-link" data-act="novo-lembrete" data-campo="activity_id" data-id="${a.id}">Adicionar</button>` : ''}</div>
-        <div class="lemb">${rem.map((r) => `<span class="lb">${I.sino}${offsetTxt(r.offset_minutes)}${b.isOwner ? `<button data-act="apagar-lembrete" data-id="${r.id}" aria-label="Apagar lembrete">✕</button>` : ''}</span>`).join('') || '<span class="vazio">Sem lembretes.</span>'}</div>
-        ${a.start_time && day ? `<button class="b-sec" data-act="calendario" data-id="${a.id}">Adicionar ao calendário</button>` : ''}</div>
-      ${b.isOwner ? `<button class="b-link centro" data-act="editar-ativ" data-id="${a.id}">Editar esta atividade</button>` : ''}
+      <details class="caixa dobra" ${rem.length ? 'open' : ''}><summary class="cx-h"><h2>Lembretes</h2><span class="ok">${rem.length ? rem.length : 'Nenhum'}</span></summary>
+        ${b.isOwner ? `<button class="b-link lemb-add" data-act="novo-lembrete" data-campo="activity_id" data-id="${a.id}">${I.mais} Adicionar lembrete</button>` : ''}
+        <div class="lemb">${rem.map((r) => `<span class="lb">${I.sino}${offsetTxt(r.offset_minutes)}${b.isOwner ? `<button data-act="apagar-lembrete" data-id="${r.id}" aria-label="Apagar lembrete">✕</button>` : ''}</span>`).join('') || ''}</div>
+        ${a.start_time && day ? `<button class="b-sec" data-act="calendario" data-id="${a.id}">Adicionar ao calendário</button>` : ''}</details>
+      ${b.isOwner ? `<div class="ficha-acoes"><button class="b-link" data-act="gerir-fotos" data-id="${a.id}">Fotografias${fotos.length ? ` (${fotos.length})` : ''}</button><span aria-hidden="true">·</span><button class="b-link" data-act="editar-ativ" data-id="${a.id}">Editar esta atividade</button></div>` : ''}
     </section>`);
   if (comoPainel) return { html: html.replace(`aria-label="Voltar ao dia">${I.voltar}`, 'aria-label="Fechar a ficha">✕'), semFoto };
   render(`<main class="ficha ${semFoto ? 'sem-foto' : ''}">${html}</main>`);
@@ -277,9 +327,9 @@ function vResumo() {
       .filter((x) => x.p && !vistos.has(x.a.wiki_title || x.a.id) && vistos.add(x.a.wiki_title || x.a.id))
       .sort((x, y) => (rk.map[x.a.ext_key] || 99) - (rk.map[y.a.ext_key] || 99)).slice(0, 3)
       .sort((x, y) => (toMin(x.a.start_time) ?? 0) - (toMin(y.a.start_time) ?? 0));
-    const res = reservasEm(d.date);
-    const tr = res.length ? res.map((x) => `${KIND_LABEL[x.kind]} ${hhmm(x.depart_time)} · ${x.from_place || ''} → ${x.to_place || ''}`).join(' · ')
-      : b.planned.filter((p) => (p.day_numbers || []).includes(d.day_number)).map((p) => p.title).join(' · ');
+    const trs = lista.filter((a) => a.transport_mode); const princ = trs.filter((a) => fichaT(a)?.scope === 'viagem');
+    const tr = (princ.length ? princ : trs.slice(0, 2)).map((a) => `${MODOS[a.transport_mode]} ${a.from_place || ''} → ${a.to_place || ''}`).join(' · ')
+      || reservasEm(d.date).map((x) => `${KIND_LABEL[x.kind]} ${x.from_place || ''} → ${x.to_place || ''}`).join(' · ');
     const hotel = h ? `<a class="lin ht" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>${esc(h.name)}</a>`
       : d.date >= b.trip.end_date ? `<div class="lin ht"><span class="ic">${I.cama}</span>Regresso a casa</div>`
       : b.isOwner && hotelPendente(d.date) ? `<a class="lin ht falta" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>${esc(hotelPendente(d.date).name)} · pagamento por fazer</a>`
@@ -294,7 +344,8 @@ function vResumo() {
   render(`<main class="pag com-nav resumo-pag">
     <header class="rs-topo"><a class="b-ic esc rs-voltar" href="#/" aria-label="Todas as viagens">${I.voltar}</a>
       <h1>${esc(b.trip.title)}</h1><p>${intervalo(b.trip.start_date, b.trip.end_date)} · ${b.days.length} dias</p>
-      ${(info.cidades || []).length ? `<div class="rs-cid">${info.cidades.map((c) => `<span><b>${esc(c.cidade)}</b> · ${c.noites} noite${c.noites > 1 ? 's' : ''}</span>`).join('')}</div>` : ''}</header>
+      ${(info.cidades || []).length ? `<div class="rs-cid">${info.cidades.map((c) => `<span><b>${esc(c.cidade)}</b> · ${c.noites} noite${c.noites > 1 ? 's' : ''}</span>`).join('')}</div>` : ''}
+      <a class="cab-mapa rs-mapa" href="#/v/${S.tripId}/mapa">${I.mapa}<span>Mapa da viagem</span></a></header>
     ${b.offline ? '<p class="aviso">Sem rede: a mostrar a última cópia guardada.</p>' : ''}
     ${info.perfil ? `<p class="perfil">${esc(info.perfil)}</p>` : ''}
     <ol class="rs-linha">${b.days.map(dia).join('')}</ol>
@@ -346,8 +397,8 @@ function vHoteis() {
       <dl class="hx-dl">${linha('Check-in', dataCurta(h.check_in) + (h.check_in.slice(0, 4) !== b.trip.start_date.slice(0, 4) ? ' ' + h.check_in.slice(0, 4) : '') + (h.check_in_time ? ' · ' + esc(h.check_in_time) : ''))}${linha('Check-out', dataCurta(h.check_out) + (h.check_out.slice(0, 4) !== b.trip.start_date.slice(0, 4) ? ' ' + h.check_out.slice(0, 4) : '') + (h.check_out_time ? ' · ' + esc(h.check_out_time) : ''))}
         ${linha('Noites', noites(h.check_in, h.check_out))}${linha('Regime', esc(regimeTxt(h.board)))}${linha('Quartos', h.rooms || 1)}
         ${linha('Agência', esc(h.agency || ''))}${linha('Reserva', esc(h.booking_code || ''))}${linha('Telefone', h.phone ? `<a href="tel:${esc(h.phone)}">${esc(h.phone)}</a>` : '')}
-        ${b.isOwner ? linha('Valor total', dinheiro(h.total_price, h.currency)) + linha('Sinal', h.deposit != null ? dinheiro(h.deposit, h.currency) : '') + linha('Falta pagar', faltaPagar(h) != null ? (h.status === 'pago' ? 'Nada · pago' : dinheiro(faltaPagar(h), h.currency)) : '') + linha('Por noite e quarto', pq != null ? dinheiro(pq, h.currency) : '') + linha(h.status === 'pago' ? 'Pago a' : 'Pagamento', h.payment_date ? dataCurta(h.payment_date) : '') : ''}</dl>
-      ${h.address ? `<a class="b-maps peq" href="${esc(h.maps_url || mapsDirLink({ maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
+        ${b.isOwner ? linha('Valor total', dinheiroD(h.total_price, h.currency)) + linha('Sinal', h.deposit != null ? dinheiroD(h.deposit, h.currency) : '') + linha('Falta pagar', faltaPagar(h) != null ? (h.status === 'pago' ? 'Nada · pago' : dinheiroD(faltaPagar(h), h.currency)) : '') + linha('Por noite e quarto', pq != null ? dinheiro(pq, h.currency) : '') + linha(h.status === 'pago' ? 'Pago a' : 'Pagamento', h.payment_date ? dataCurta(h.payment_date) : '') : ''}</dl>
+      ${h.address ? `<a class="b-maps peq" href="${esc(mapsPlaceLink({ maps_url: h.maps_url, maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
       ${h.notes ? `<p class="hx-notas">${esc(h.notes)}</p>` : ''}
       ${documentos(tk, 'hotel_id', h.id)}
       ${b.isOwner ? `<div class="hx-acoes">${h.status !== 'pago' ? `<button class="b-pri b-peq" data-act="hotel-pago" data-id="${h.id}">✓ Pagamento efetuado</button><button class="b-sec b-peq" data-act="hotel-cancelar" data-id="${h.id}">Cancelar reserva</button>` : ''}<button class="b-link" data-act="hotel" data-id="${h.id}">Editar</button></div>` : ''}
@@ -427,20 +478,125 @@ function documentos(tk, campoId, id) {
 // ---------- transportes ----------
 function vTransportes() {
   const b = S.b; const tips = b.sections.find((s) => s.kind === 'transport_tips');
-  render(`<main class="pag com-nav"><header class="cab-pag"><div><h1>Transportes</h1><p>${esc(b.trip.title)}</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="reserva">${I.mais} Adicionar</button>` : ''}</header>
-    <h2 class="sec">Reservados</h2>
-    <div class="lista">${b.bookings.map((x) => { const d = b.days.find((dd) => dd.date === x.depart_date);
-      return `<article class="caixa" id="r-${x.id}"><div class="cx-h"><h2>${KIND_LABEL[x.kind]}${x.title ? ': ' + esc(x.title) : ''}</h2>${b.isOwner ? `<button class="b-link" data-act="reserva" data-id="${x.id}">Editar</button>` : ''}</div>
-      <p class="rota"><strong>${esc(x.from_place || '')}</strong> ${esc(hhmm(x.depart_time))} → <strong>${esc(x.to_place || '')}</strong> ${esc(hhmm(x.arrive_time))}</p>
-      <p class="meta">${dataLonga(x.depart_date)}${[x.carrier, x.number].filter(Boolean).length ? ' · ' + esc([x.carrier, x.number].filter(Boolean).join(' ')) : ''}</p>
-      <dl class="dados">${x.booking_code ? `<dt>Reserva</dt><dd>${esc(x.booking_code)}</dd>` : ''}${x.seats ? `<dt>Lugares</dt><dd>${esc(x.seats)}</dd>` : ''}</dl>
-      ${x.notes ? `<p>${esc(x.notes)}</p>` : ''}${documentos(bilhetes({ booking_id: x.id }), 'booking_id', x.id)}
-      ${d ? `<div class="dias-l"><a href="#/v/${S.tripId}/dia/${d.day_number}">Dia ${d.day_number}</a></div>` : ''}</article>`; }).join('') || `<p class="vazio">${b.isOwner ? 'Coloca aqui voos, comboios e transfers à medida que os fores comprando.' : 'Ainda não há reservas.'}</p>`}</div>
-    <h2 class="sec">Trajetos da viagem</h2>
-    <div class="lista">${b.planned.map((p) => `<article class="caixa"><h2>${esc(p.title)}</h2><p>${esc(p.payment || '')}</p><p class="meta">${esc(p.duration || '')}${p.price ? ' · ' + esc(p.price) : ''}</p>
-      <div class="dias-l">${(p.day_numbers || []).map((n) => `<a href="#/v/${S.tripId}/dia/${n}">Dia ${n}</a>`).join('')}</div></article>`).join('')}</div>
-    ${tips ? `<h2 class="sec">${esc(tips.title)}</h2><div class="caixa">${tips.content.map((c) => `<p><strong>${esc(c.t)}.</strong> ${esc(c.d)}</p>`).join('')}</div>` : ''}
+  // cada transporte existe uma vez: a deslocação do dia (com a sua ficha) ou uma reserva acrescentada à mão
+  const grupos = b.days.map((d) => {
+    const { lista } = atividadesDoDia(d);
+    const its = lista.filter((a) => a.transport_mode).map((a) => ({ a, f: fichaT(a), h: a.start_time }))
+      .concat(reservasEm(d.date).map((x) => ({ f: x, h: x.depart_time, manual: true })))
+      .sort((x, y) => (toMin(x.h) ?? 9999) - (toMin(y.h) ?? 9999));
+    return { d, its };
+  }).filter((g) => g.its.length);
+  const orfas = b.bookings.filter((x) => x.activity_ext_key && !b.activities.some((a) => a.ext_key === x.activity_ext_key));
+  const nViag = grupos.reduce((n, g) => n + g.its.length, 0), nVoos = grupos.reduce((n, g) => n + g.its.filter((i) => (i.a?.transport_mode || '') === 'aviao' || i.f?.kind === 'flight').length, 0);
+  const cartao = (it) => {
+    const a = it.a || {}, f = it.f || {}; const m = a.transport_mode || ({ flight: 'aviao', train: 'comboio', bus: 'autocarro', boat: 'barco', transfer: 'taxi', car: 'taxi' })[f.kind] || 'comboio';
+    const de = a.from_place || f.from_place || '', para = a.to_place || f.to_place || '';
+    const hIni = hhmm(a.start_time || f.depart_time), hFim = hhmm(a.arrive_time || f.arrive_time);
+    const alvo = f.id ? `data-act="ficha-transporte" data-id="${f.id}"` : '';
+    if (f.scope !== 'viagem' && !it.manual) return `<button class="tr-loc" ${alvo}>${icT(m, 'p')}<span class="tr-loc-t"><b>${hIni}</b> ${esc(de)} → ${esc(para)}<small>${esc(f.carrier || MODOS[m])}</small></span>${estT(f.status)}</button>`;
+    const falta = f.status === 'pago' ? 0 : f.total_price == null ? null : Math.max(0, Number(f.total_price) - (Number(f.deposit) || 0));
+    const ntk = bilhetes({ booking_id: f.id }).length;
+    const grelhaT = f.status === 'pago'
+      ? `<div class="tr-gr"><span><small>Total</small>${f.total_price != null ? dinheiro(f.total_price, f.currency) : '—'}</span><span><small>Estado</small><b class="ok">Pago</b></span><span class="tr-bil"><small>Bilhetes</small>${ntk}/${pessoas().length}</span></div>`
+      : f.status === 'por_comprar'
+        ? `<div class="tr-gr"><span><small>Sinal</small>${f.deposit != null ? dinheiro(f.deposit, f.currency) : '—'}</span><span><small>Falta</small><b class="f">${falta != null ? dinheiro(falta, f.currency) : '—'}</b></span>${f.vendor_url ? `<a class="tr-comprar" href="${esc(f.vendor_url)}" target="_blank" rel="noopener">${I.link || ''}Comprar</a>` : '<span><small>Bilhetes</small>—</span>'}</div>`
+        : `<div class="tr-gr um"><span><small>${EST_T[f.status]}</small>${esc(f.notes || '')}</span></div>`;
+    const linha2 = m === 'aviao'
+      ? `<span class="vt"><span><small>Voo</small><b>${esc(f.number || '—')}</b></span><span><small>Terminal</small><b>${esc(f.terminal || '—')}</b></span></span>`
+      : f.number || f.booking_code ? `<span class="vt">${f.number ? `<span><small>${m === 'comboio' ? 'Comboio' : 'Número'}</small><b>${esc(f.number)}</b></span>` : ''}${f.booking_code ? `<span><small>Reserva</small><b>${esc(f.booking_code)}</b></span>` : ''}</span>` : `<span class="meta">${esc(MODOS[m])}</span>`;
+    return `<article class="tr-pass"><button class="tr-p1" ${alvo}><span class="cid ${a.from_code ? '' : 'nome'}"><b>${esc(a.from_code || de)}</b>${a.from_code ? `<span>${esc(de)}</span>` : ''}<span>${hIni}</span></span>
+      <span class="mid">${icT(m)}<span class="tr-tr"></span><span>${esc(f.carrier || '')}</span></span>
+      <span class="cid d ${a.to_code ? '' : 'nome'}"><b>${esc(a.to_code || para)}</b>${a.to_code ? `<span>${esc(para)}</span>` : ''}<span>${hFim}</span></span></button>
+      <div class="tr-cut"></div><div class="tr-p2">${linha2}${estT(f.status)}</div>${grelhaT}</article>`;
+  };
+  render(`<main class="pag com-nav tr-pag"><header class="cab-pag"><div><h1>Transportes</h1><p>${esc(b.trip.title)} · ${nViag} trajetos${nVoos ? ` · ${nVoos} voo${nVoos > 1 ? 's' : ''}` : ''}</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="reserva">${I.mais} Adicionar</button>` : ''}</header>
+    ${grupos.map(({ d, its }) => `<section class="tr-bloco"><a class="tr-dia" href="#/v/${S.tripId}/dia/${d.day_number}"><span class="num">${d.day_number}</span><span class="dt"><b>Dia ${d.day_number} · ${dataLonga(d.date)}</b><small>${esc(d.city || '')}</small></span>${I.seg}</a>
+      <div class="tr-itens">${its.map(cartao).join('')}</div></section>`).join('') || `<p class="vazio">Ainda não há transportes nesta viagem.</p>`}
+    ${b.isOwner && orfas.length ? `<h2 class="sec">Já não estão no roteiro</h2><div class="tr-itens">${orfas.map((f) => `<button class="tr-loc" data-act="ficha-transporte" data-id="${f.id}">${icT('comboio', 'p')}<span class="tr-loc-t">${esc([f.from_place, f.to_place].filter(Boolean).join(' → ') || f.carrier || 'Transporte')}<small>Tem dados teus: decide se apagas</small></span>${estT(f.status)}</button>`).join('')}</div>` : ''}
+    ${tips ? `<details class="caixa dobra tr-dicas"><summary class="cx-h"><h2>${esc(tips.title)}</h2></summary>${tips.content.map((c) => `<p><strong>${esc(c.t)}.</strong> ${esc(c.d)}</p>`).join('')}</details>` : ''}
     ${nav('transportes')}</main>`);
+}
+// ficha de um transporte: o que se vê e, para o dono, o que se preenche
+function fichaTransporte(id) {
+  const b = S.b; const f = b.bookings.find((x) => x.id === id); if (!f) return;
+  const a = b.activities.find((x) => x.ext_key === f.activity_ext_key) || {};
+  const day = b.days.find((d) => d.id === a.day_id);
+  const m = a.transport_mode || 'comboio';
+  const titulo = `${MODOS[m] || 'Transporte'} ${a.from_place || f.from_place || ''} → ${a.to_place || f.to_place || ''}`;
+  const tk = bilhetes({ booking_id: f.id });
+  if (!b.isOwner) {
+    const w = document.createElement('div'); w.className = 'folha-fundo';
+    w.innerHTML = `<div class="folha" role="dialog" aria-modal="true" aria-label="${esc(titulo)}"><div class="folha-top"><h2>${esc(titulo)}</h2><button class="b-ic" data-fechar aria-label="Fechar">✕</button></div>
+      <dl class="dados">${day ? `<dt>Dia</dt><dd>Dia ${day.day_number} · ${dataLonga(day.date)}</dd>` : ''}<dt>Hora</dt><dd>${hhmm(a.start_time)}${a.arrive_time ? ' → ' + hhmm(a.arrive_time) : ''}</dd>${f.carrier ? `<dt>Empresa</dt><dd>${esc(f.carrier)}</dd>` : ''}${f.number ? `<dt>${m === 'aviao' ? 'Voo' : 'Número'}</dt><dd>${esc(f.number)}</dd>` : ''}${f.terminal ? `<dt>Terminal</dt><dd>${esc(f.terminal)}</dd>` : ''}<dt>Estado</dt><dd>${EST_T[f.status]}</dd>${f.total_price != null ? `<dt>Valor</dt><dd>${dinheiroD(f.total_price, f.currency)}</dd>` : ''}</dl>
+      ${f.notes ? `<p>${esc(f.notes)}</p>` : ''}${documentos(tk, 'booking_id', f.id)}</div>`;
+    document.body.appendChild(w); w.addEventListener('click', (e) => { if (e.target.closest('[data-fechar]')) w.remove(); }); return;
+  }
+  folha(titulo,
+    `${day ? `<p class="meta">Dia ${day.day_number} · ${dataLonga(day.date)} · ${hhmm(a.start_time)}${a.arrive_time ? ' → ' + hhmm(a.arrive_time) : ''}</p>` : ''}`
+    + escolha('status', 'Estado', Object.entries(EST_T), f.status)
+    + `<div class="duas">${campo('carrier', 'Empresa', f.carrier)}${campo('number', m === 'aviao' ? 'N.º do voo' : 'N.º (comboio, linha)', f.number)}</div>`
+    + `<div class="duas">${m === 'aviao' ? campo('terminal', 'Terminal de partida', f.terminal) : ''}${campo('booking_code', 'N.º de reserva', f.booking_code)}</div>`
+    + `<div class="duas">${campo('total_price', 'Valor total', f.total_price ?? '', 'number', 'step="0.01" min="0" inputmode="decimal"')}${campo('deposit', 'Sinal pago', f.deposit ?? '', 'number', 'step="0.01" min="0" inputmode="decimal"')}</div>`
+    + `<div class="duas">${escolha('currency', 'Moeda', moedasForm(f.currency), f.currency || 'EUR')}${campo('payment_date', 'Data de pagamento', f.payment_date, 'date')}</div>`
+    + campo('vendor_url', 'Ligação para a empresa vendedora', f.vendor_url, 'url', 'placeholder="https://"') + campo('seats', 'Lugares', f.seats) + area('notes', 'Notas', f.notes)
+    + `<div class="campo"><span>Bilhetes e documentos</span>${documentos(tk, 'booking_id', f.id)}</div>`
+    + (!f.activity_ext_key || !a.id ? '<button type="button" class="b-perigo" data-apagar>Apagar este transporte</button>' : ''),
+  async (v) => { ['total_price', 'deposit'].forEach((k) => { v[k] = v[k] === '' ? null : Number(v[k]); }); if (!v.payment_date) v.payment_date = null;
+    v.paid_at = v.status === 'pago' ? (f.paid_at || new Date().toISOString()) : null;
+    await op(sb.from('bookings').update(v).eq('id', id), 'Transporte guardado.'); });
+  ligarApagar('bookings', id, 'Apagar este transporte e os bilhetes associados?');
+  if (cambio()) { const form = document.querySelector('.folha form'); const tot = form.querySelector('[name=total_price]');
+    const out = document.createElement('p'); out.className = 'meta conv-vivo'; tot.closest('.duas').after(out);
+    const upd = () => { const v = form.querySelector('[name=total_price]').value; out.textContent = v ? 'Valor total ' + convTxt(v, form.querySelector('[name=currency]').value) : ''; };
+    form.addEventListener('input', upd); form.addEventListener('change', upd); upd(); }
+}
+
+// ---------- mapa (só pontos; cada ponto abre o Google Maps no local) ----------
+const CORES_DIA = ['#2F6DB5', '#D9822B', '#2E8B57', '#8E44AD', '#C0392B', '#16A085', '#B7950B', '#D35400', '#5D6D7E', '#E84393', '#00838F', '#6D4C41'];
+const corDia = (n) => CORES_DIA[(n - 1) % CORES_DIA.length];
+function carregarLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (!document.querySelector('link[data-leaflet]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.leaflet = '1'; l.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(l); }
+  return new Promise((ok, falha) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'; sc.onload = ok; sc.onerror = falha; document.head.appendChild(sc); });
+}
+async function vMapa(n) {
+  const b = S.b; const umDia = n ? b.days.find((d) => d.day_number === Number(n)) : null;
+  const dias = umDia ? [umDia] : b.days;
+  const pontos = [];
+  dias.forEach((d) => { const vistos = new Set();
+    atividadesDoDia(d).lista.filter((a) => a.lat != null && a.lng != null && !a.transport_mode && ['visit', 'walk', 'free'].includes(a.kind))
+      .forEach((a) => { const k = a.lat.toFixed(4) + ',' + a.lng.toFixed(4); if (vistos.has(k)) return; vistos.add(k); pontos.push({ a, d }); }); });
+  const hoteis = b.hotels.filter((h) => h.lat != null && h.status !== 'cancelado' && (b.isOwner || h.status === 'pago') && dias.some((d) => h.check_in <= d.date && d.date < h.check_out));
+  const voltar = umDia ? `#/v/${S.tripId}/dia/${umDia.day_number}` : `#/v/${S.tripId}/resumo`;
+  render(`<main class="mapa-pag ${umDia ? 'um-dia' : ''}"><header class="mp-cab"><a class="b-ic" href="${voltar}" aria-label="Voltar">${I.voltar}</a>
+      <div><h1>${umDia ? `Mapa do dia ${umDia.day_number}` : 'Mapa da viagem'}</h1><p>${umDia ? `${esc(umDia.city || '')} · ${dataLonga(umDia.date)}` : `${esc(b.trip.title)} · ${pontos.length} locais`}</p></div></header>
+    ${!umDia ? `<div class="mp-leg" role="group" aria-label="Mostrar dias">${b.days.filter((d) => pontos.some((p) => p.d.id === d.id)).map((d) => `<button class="mp-chip on" data-act="mapa-dia" data-n="${d.day_number}" aria-pressed="true"><span style="background:${corDia(d.day_number)}"></span>Dia ${d.day_number}</button>`).join('')}</div>` : ''}
+    <div id="mapa" class="mp-mapa" aria-label="Mapa"></div>
+    ${pontos.length ? '' : '<p class="vazio mp-vazio">Ainda não há locais com localização.</p>'}
+    ${nav(umDia ? 'dia' : 'resumo')}</main>`);
+  try { await carregarLeaflet(); } catch { document.getElementById('mapa').innerHTML = '<p class="vazio">Não foi possível carregar o mapa. Verifica a ligação à rede.</p>'; return; }
+  const L = window.L; const el = document.getElementById('mapa'); if (!el) return;
+  const mapa = L.map(el, { zoomControl: true, attributionControl: true });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>' }).addTo(mapa);
+  const grupos = {}; const todos = [];
+  pontos.forEach(({ a, d }, i) => {
+    const cor = corDia(d.day_number); const rot = umDia ? i + 1 : d.day_number;
+    const m = L.marker([a.lat, a.lng], { icon: L.divIcon({ className: 'mp-pin', html: `<span style="background:${cor}">${rot}</span>`, iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14] }), title: a.title })
+      .bindPopup(`<div class="mp-pop"><b>${esc(a.title)}</b><small>Dia ${d.day_number}${a.start_time ? ' · ' + hhmm(a.start_time) : ''}</small>
+        <a class="mp-gm" href="${esc(mapsPlaceLink(a))}" target="_blank" rel="noopener">Abrir no Google Maps</a><a class="mp-fi" href="#/v/${S.tripId}/a/${a.id}">Ver a ficha</a></div>`);
+    (grupos[d.day_number] = grupos[d.day_number] || L.layerGroup().addTo(mapa)).addLayer(m); todos.push([a.lat, a.lng]);
+  });
+  hoteis.forEach((h) => { const m = L.marker([h.lat, h.lng], { icon: L.divIcon({ className: 'mp-pin mp-hotel', html: `<span>${I.cama}</span>`, iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14] }), title: h.name })
+    .bindPopup(`<div class="mp-pop"><b>${esc(h.name)}</b><small>Hotel · ${dataCurta(h.check_in)} → ${dataCurta(h.check_out)}</small><a class="mp-gm" href="${esc(mapsPlaceLink({ maps_url: h.maps_url, maps_query: [h.name, h.address || h.city].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">Abrir no Google Maps</a></div>`).addTo(mapa); todos.push([h.lat, h.lng]); });
+  if (todos.length) mapa.fitBounds(todos, { padding: [36, 36], maxZoom: 15 }); else mapa.setView([50.85, 4.35], 6);
+  S.mapa = { mapa, grupos };
+  setTimeout(() => mapa.invalidateSize(), 60);
+}
+// localização de um hotel a partir da morada (OpenStreetMap), para o mostrar no mapa
+async function geocodificar(q) {
+  try { const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=pt&q=${encodeURIComponent(q)}`); const j = await r.json();
+    return j?.[0] ? { lat: Number(j[0].lat), lng: Number(j[0].lon) } : null; } catch { return null; }
 }
 
 // ---------- mais ----------
@@ -455,6 +611,7 @@ function vMais() {
       ${b.rankings.map((r) => it(`#/v/${S.tripId}/ranking/${r.id}`, esc(r.title))).join('')}
       ${secs.map((s) => it(`#/v/${S.tripId}/secao/${s.id}`, esc(s.title))).join('')}
       ${it(`#/v/${S.tripId}/participantes`, 'Participantes', `${b.members.length}`)}
+      ${b.isOwner ? `<button class="menu-i" data-act="cambio"><span>Moeda e câmbio</span><small>${esc(b.trip.local_currency || 'EUR')}${b.trip.info?.cambio?.ativo ? ' · conversão ligada' : ''}</small>${I.seg}</button>` : ''}
       ${it(`#/v/${S.tripId}/exportar`, 'Exportar roteiro (PDF)')}
       <button class="menu-i" data-act="offline"><span>Guardar bilhetes neste telemóvel</span><small>para usar sem rede</small>${I.seg}</button>
       <button class="menu-i" data-act="tema"><span>${temaTxt()}</span><small>tocar para mudar</small>${I.seg}</button>
@@ -483,14 +640,28 @@ function vChecklist() {
     ${nav('mais')}</main>`);
 }
 
-function vRanking(rid, destaque) {
-  const b = S.b; const r = b.rankings.find((x) => x.id === rid) || b.rankings[0]; if (!r) return vMais();
-  const items = b.rankingItems.filter((i) => i.ranking_id === r.id);
-  render(`<main class="pag com-nav"><header class="cab-pag"><a class="b-ic" href="javascript:history.back()" aria-label="Voltar">${I.voltar}</a><div><h1>Ranking</h1><p>${esc(b.trip.title)}</p></div></header>
-    ${b.rankings.length > 1 ? `<div class="opcoes">${b.rankings.map((x) => `<a class="op ${x.id === r.id ? 'on' : ''}" href="#/v/${S.tripId}/ranking/${x.id}">${esc(x.title)}</a>`).join('')}</div>` : `<h2 class="sec">${esc(r.title)}</h2>`}
-    <ol class="rank">${items.map((i) => { const a = b.activities.find((x) => (i.activity_ext_keys || []).includes(x.ext_key)); const on = destaque && (i.activity_ext_keys || []).includes(destaque);
-      return `<li id="rk-${i.position}" class="${on ? 'on' : ''}"><span class="rk-n">${i.position}</span><span class="rk-c"><strong>${esc(i.title)}</strong>${i.note ? `<span>${esc(i.note)}</span>` : ''}</span>${a ? `<a href="#/v/${S.tripId}/a/${a.id}" aria-label="Ver atividade">${I.seg}</a>` : ''}</li>`; }).join('')}</ol>
-    ${nav('mais')}</main>`);
+async function vRanking(rid, destaque) {
+  const b = S.b; const r = b.rankings.find((x) => x.id === rid) || b.rankings.find((x) => x.is_primary) || b.rankings[0]; if (!r) return vMais();
+  const items = b.rankingItems.filter((i) => i.ranking_id === r.id).sort((x, y) => x.position - y.position);
+  const pc = ehPC();
+  // a atividade de cada item (se estiver no roteiro) e os dias em que se visita
+  const info = (i) => {
+    const acts = b.activities.filter((x) => (i.activity_ext_keys || []).includes(x.ext_key));
+    const dias = [...new Map(acts.map((x) => b.days.find((d) => d.id === x.day_id)).filter(Boolean).map((d) => [d.id, d])).values()].sort((x, y) => x.day_number - y.day_number);
+    const a = acts[0];
+    const foto = a && b.photos.find((p) => acts.some((x) => x.id === p.activity_id) && p.external_url);
+    return { a, dias, foto };
+  };
+  const sel = destaque ? b.activities.find((x) => x.ext_key === destaque) : null;
+  let painel = '';
+  if (pc && sel) { const fp = await vAtividade(sel.id, true, `#/v/${S.tripId}/ranking/${r.id}`); painel = `<aside class="detalhe ficha aberto ${fp.semFoto ? 'sem-foto' : ''}" aria-label="Ficha da atividade">${fp.html}</aside>`; }
+  const lista = `<header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>${esc(r.title)}</h1><p>${esc(b.trip.title)} · ${items.length} locais</p></div></header>
+    ${b.rankings.length > 1 ? `<nav class="rk-tabs" aria-label="Rankings">${b.rankings.slice().sort((x, y) => (y.is_primary ? 1 : 0) - (x.is_primary ? 1 : 0) || (x.sort_order || 0) - (y.sort_order || 0)).map((x) => `<a class="rk-tab ${x.id === r.id ? 'on' : ''}" href="#/v/${S.tripId}/ranking/${x.id}">${esc(x.title)}</a>`).join('')}</nav>` : ''}
+    <ol class="rank rank2">${items.map((i) => { const { a, dias, foto } = info(i); const on = destaque && (i.activity_ext_keys || []).includes(destaque);
+      const corpo = `<span class="rk-n">${i.position}</span>${foto ? `<span class="rk-foto" style="background-image:url('${esc(foto.external_url)}')"></span>` : ''}<span class="rk-c"><strong>${esc(i.title)}</strong>${i.note ? `<span>${esc(i.note)}</span>` : ''}</span>`;
+      return `<li id="rk-${i.position}" class="${on ? 'on' : ''}">${a ? `<a class="rk-main" href="#/v/${S.tripId}/a/${a.id}/r/${r.id}">${corpo}</a>` : `<div class="rk-main">${corpo}</div>`}
+        <div class="rk-dias">${dias.length ? dias.map((d) => `<a class="rk-dia" href="#/v/${S.tripId}/dia/${d.day_number}" aria-label="Ir para o dia ${d.day_number}">Dia ${d.day_number} · ${dataCurta(d.date)}</a>`).join('') : '<span class="rk-fora">Fora do roteiro</span>'}</div></li>`; }).join('')}</ol>`;
+  render(pc && painel ? `<main class="dia rk-duo"><div class="dia-col"><div class="pag">${lista}</div></div>${painel}</main>` : `<main class="pag com-nav">${lista}${nav('mais')}</main>`);
   document.querySelector('.rank li.on')?.scrollIntoView({ block: 'center' });
 }
 
@@ -548,6 +719,50 @@ function vInstalar() {
 const REGIMES = [['', '—'], ['so_alojamento', 'Só alojamento'], ['pequeno_almoco', 'Pequeno-almoço'], ['meia_pensao', 'Meia pensão'], ['pensao_completa', 'Pensão completa'], ['tudo_incluido', 'Tudo incluído']];
 const regimeTxt = (k) => REGIMES.find(([v]) => v === k)?.[1] || '';
 const dinheiro = (v, moeda = 'EUR') => v == null || v === '' ? '' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: moeda || 'EUR' }).format(Number(v));
+// ---------- moeda local e câmbio (definido por viagem em Mais → Moeda e câmbio) ----------
+const MOEDAS = [['EUR', 'Euro (€)'], ['JPY', 'Iene japonês (¥)'], ['GBP', 'Libra (£)'], ['USD', 'Dólar americano ($)'], ['CHF', 'Franco suíço'], ['CZK', 'Coroa checa'], ['DKK', 'Coroa dinamarquesa'], ['SEK', 'Coroa sueca'], ['NOK', 'Coroa norueguesa'], ['PLN', 'Zlóti polaco'], ['HUF', 'Forint húngaro'], ['TRY', 'Lira turca'], ['CAD', 'Dólar canadiano'], ['AUD', 'Dólar australiano'], ['BRL', 'Real brasileiro'], ['MXN', 'Peso mexicano'], ['THB', 'Baht tailandês'], ['CNY', 'Yuan chinês'], ['KRW', 'Won sul-coreano'], ['INR', 'Rupia indiana'], ['ZAR', 'Rand sul-africano'], ['MAD', 'Dirham marroquino'], ['ISK', 'Coroa islandesa']];
+const moedasForm = (atual) => { const loc = S.b?.trip?.local_currency; const base = MOEDAS.filter(([k]) => ['EUR', loc, atual].includes(k));
+  return [...base, ...MOEDAS.filter((m) => !base.includes(m))]; };
+const cambio = () => { const t = S.b?.trip; const c = t?.info?.cambio; const loc = t?.local_currency;
+  if (!c?.ativo || !loc || loc === 'EUR') return null;
+  let taxa = Number(c.taxa) || null;
+  try { const m = JSON.parse(localStorage.getItem('cambio:' + loc) || 'null'); if (c.auto && m?.taxa) taxa = m.taxa; } catch {}
+  return taxa ? { loc, taxa } : null; };
+// converte entre euros e a moeda local da viagem; devolve o texto "≈ …" ou ''
+function convTxt(v, moeda) {
+  const c = cambio(); if (!c || v == null || v === '') return '';
+  const m = moeda || 'EUR';
+  if (m === 'EUR') return '≈ ' + dinheiro(Number(v) * c.taxa, c.loc);
+  if (m === c.loc) return '≈ ' + dinheiro(Number(v) / c.taxa, 'EUR');
+  return '';
+}
+// para os detalhes: valor na moeda em que foi registado e, por baixo, o convertido
+const dinheiroD = (v, moeda) => { const t = dinheiro(v, moeda); const c = convTxt(v, moeda); return t && c ? `${t}<small class="conv">${c}</small>` : t; };
+async function atualizarCambio() {
+  const t = S.b?.trip; const c = t?.info?.cambio; const loc = t?.local_currency;
+  if (!c?.ativo || !c.auto || !loc || loc === 'EUR') return;
+  const hoje = new Date().toISOString().slice(0, 10);
+  try { const m = JSON.parse(localStorage.getItem('cambio:' + loc) || 'null'); if (m?.data === hoje) return; } catch {}
+  try {
+    const r = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${loc}`); const j = await r.json(); const taxa = j?.rates?.[loc];
+    if (!taxa) return;
+    try { localStorage.setItem('cambio:' + loc, JSON.stringify({ taxa, data: hoje })); } catch {}
+    if (S.b.isOwner && Number(c.taxa) !== taxa) { const info = { ...t.info, cambio: { ...c, taxa, data: j.date || hoje } }; await sb.from('trips').update({ info }).eq('id', t.id); t.info = info; }
+  } catch { /* sem rede: fica a última taxa guardada */ }
+}
+function fCambio() {
+  const t = S.b.trip; const c = t.info?.cambio || {};
+  folha('Moeda e câmbio',
+    `<p class="meta">Para viagens fora da zona euro. Os valores ficam na moeda em que os registas e, nos detalhes, aparece também o valor convertido (euros ↔ moeda local).</p>`
+    + escolha('local_currency', 'Moeda do país', MOEDAS, t.local_currency || 'EUR')
+    + `<label class="campo campo-chk"><input type="checkbox" name="ativo" ${c.ativo ? 'checked' : ''}><span>Mostrar valores convertidos</span></label>`
+    + escolha('auto', 'Taxa de câmbio', [['1', 'Automática (Banco Central Europeu, atualizada todos os dias)'], ['0', 'Manual']], c.auto === false ? '0' : '1')
+    + campo('taxa', '1 € vale (na moeda do país)', c.taxa ?? '', 'number', 'step="0.0001" min="0" inputmode="decimal"')
+    + (c.data ? `<p class="meta">Última taxa: ${c.taxa} · ${dataCurta(c.data)}</p>` : ''),
+  async (f) => { const info = { ...(t.info || {}), cambio: { ativo: f.ativo === 'on', auto: f.auto === '1', taxa: f.taxa === '' ? null : Number(f.taxa), data: c.data || null } };
+    await op(sb.from('trips').update({ local_currency: f.local_currency, info }).eq('id', t.id), 'Moeda guardada.');
+    try { localStorage.removeItem('cambio:' + f.local_currency); } catch {} atualizarCambio().then(() => router()); });
+}
 const faltaPagar = (h) => h.status === 'pago' ? 0 : h.total_price == null || h.total_price === '' ? null : Math.max(0, Number(h.total_price) - (Number(h.deposit) || 0));
 const porNoiteQuarto = (h) => { const n = h.check_in && h.check_out ? noites(h.check_in, h.check_out) : 0; const q = Number(h.rooms) || 1;
   return h.total_price && n > 0 ? Number(h.total_price) / n / q : null; };
@@ -559,7 +774,7 @@ function fHotel(id, pre = {}) {
     + `<div class="duas">${campo('check_in', 'Check-in', h.check_in, 'date', 'required')}${campo('check_out', 'Check-out', h.check_out, 'date', 'required')}</div>`
     + `<div class="duas">${campo('check_in_time', 'Hora check-in', h.check_in_time, 'time')}${campo('check_out_time', 'Hora check-out', h.check_out_time, 'time')}</div>`
     + `<div class="duas">${escolha('board', 'Regime', REGIMES, h.board || '')}${campo('rooms', 'N.º de quartos', h.rooms ?? 1, 'number', 'min="1" step="1" required')}</div>`
-    + `<div class="duas">${campo('total_price', 'Valor total', h.total_price ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')}${escolha('currency', 'Moeda', [['EUR', 'Euro (€)'], ['GBP', 'Libra (£)'], ['USD', 'Dólar ($)'], ['JPY', 'Iene (¥)'], ['HUF', 'Florim (Ft)'], ['CHF', 'Franco suíço']], h.currency || 'EUR')}</div>`
+    + `<div class="duas">${campo('total_price', 'Valor total', h.total_price ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')}${escolha('currency', 'Moeda', moedasForm(h.currency), h.currency || 'EUR')}</div>`
     + campo('deposit', 'Sinal pago', h.deposit ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')
     + '<div class="calculo" id="calc-noite" aria-live="polite"></div>'
     + `<div class="duas">${campo('payment_date', 'Data de pagamento', h.payment_date, 'date')}${campo('cancel_by', 'Cancelamento grátis até', h.cancel_by, 'date')}</div>`
@@ -568,6 +783,9 @@ function fHotel(id, pre = {}) {
     + `<div class="duas">${campo('booking_code', 'Código de reserva', h.booking_code)}${campo('phone', 'Telefone', h.phone, 'tel')}</div>` + area('notes', 'Notas', h.notes)
     + (id ? '<button type="button" class="b-perigo" data-apagar>Apagar hotel</button>' : ''),
   async (f) => { f.trip_id = S.tripId;
+    { const ant = S.b.hotels.find((x) => x.id === id);
+      if (f.address && (!ant || ant.address !== f.address || ant.city !== f.city || ant.lat == null)) { const g = await geocodificar([f.address, f.city].filter(Boolean).join(', ')) || await geocodificar([f.name, f.city].filter(Boolean).join(', ')); f.lat = g?.lat ?? null; f.lng = g?.lng ?? null; }
+      else if (!f.address && (!ant || ant.lat == null)) { const g = f.name ? await geocodificar([f.name, f.city].filter(Boolean).join(', ')) : null; f.lat = g?.lat ?? null; f.lng = g?.lng ?? null; } }
     for (const k of ['maps_url', 'check_in_time', 'check_out_time', 'board', 'payment_date', 'cancel_by', 'total_price', 'agency', 'city', 'deposit']) if (!f[k]) f[k] = null;
     if (f.deposit != null) f.deposit = Number(f.deposit);
     if (f.deposit != null && f.total_price != null && f.deposit > f.total_price) throw new Error('O sinal não pode ser maior do que o valor total.');
@@ -581,8 +799,8 @@ function fHotel(id, pre = {}) {
   const form = document.querySelector('.folha form'); const out = document.getElementById('calc-noite');
   const calc = () => { const v = Object.fromEntries(new FormData(form)); const p = porNoiteQuarto(v); const n = v.check_in && v.check_out ? noites(v.check_in, v.check_out) : 0;
     const fp = faltaPagar(v);
-    out.innerHTML = (p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiro(p, v.currency)}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>')
-      + (fp != null ? `<span class="calc-l2">${v.status === 'pago' ? 'Pago na totalidade' : 'Falta pagar'}</span><strong class="calc-l2">${dinheiro(fp, v.currency)}</strong>` : ''); };
+    out.innerHTML = (p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiroD(p, v.currency)}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>')
+      + (fp != null ? `<span class="calc-l2">${v.status === 'pago' ? 'Pago na totalidade' : 'Falta pagar'}</span><strong class="calc-l2">${dinheiroD(fp, v.currency)}</strong>` : ''); };
   form.addEventListener('input', calc); calc();
   ligarDatas(form, 'check_in', 'check_out', 1);
   ligarApagar('hotels', id, 'Apagar este hotel?');
@@ -660,10 +878,95 @@ function fNovaViagem() {
 }
 
 // ---------- ações ----------
+
+// ---------- Guia do local: texto completo + narração com a voz do aparelho ----------
+function guiaBlocos(txt) {
+  return String(txt).split(/\n\s*\n|\n(?=## )/).map((x) => x.trim()).filter(Boolean)
+    .flatMap((x) => x.startsWith('## ') ? (() => { const [t, ...r] = x.split('\n'); return [{ t: 'h', s: t.slice(3).trim() }, ...(r.join(' ').trim() ? [{ t: 'p', s: r.join(' ').trim() }] : [])]; })() : [{ t: 'p', s: x.replace(/\n/g, ' ') }]);
+}
+function guiaHtml(txt, audio = null, titulo = '') {
+  const bl = guiaBlocos(txt); const corte = Math.min(bl.length, bl[0]?.t === 'h' ? 2 : 1);
+  const min = Math.max(1, Math.round(String(txt).split(/\s+/).length / 150));
+  const el = (x, i) => x.t === 'h' ? `<h3 data-gi="${i}">${esc(x.s)}</h3>` : `<p data-gi="${i}">${esc(x.s)}</p>`;
+  const podeOuvir = 'speechSynthesis' in window;
+  return `<div class="caixa guia" id="guia">
+    <div class="cx-h"><h2>Guia do local</h2><span class="guia-min">${min} min a ouvir</span></div>
+    ${audio ? `<div class="leitor" data-titulo="${esc(titulo)}">
+      <button class="lt-play" data-act="aud-play" aria-label="Ouvir o guia">${I.ouvir}</button>
+      <div class="lt-meio"><div class="lt-tit">Ouvir o guia</div>
+        <input class="lt-barra" type="range" min="0" max="1000" value="0" step="1" aria-label="Posição no áudio">
+        <div class="lt-tempos"><span class="lt-at">0:00</span><span class="lt-tot">–:–</span></div></div>
+      <button class="lt-vel" data-act="aud-vel" aria-label="Velocidade">1×</button>
+      <audio id="guia-audio" preload="metadata" src="${esc(audio)}"></audio></div>`
+    : `<div class="guia-ctl"><button class="b-ouvir" data-act="guia-ouvir">${I.ouvir}<span>Ouvir o guia</span></button><button class="b-parar" data-act="guia-parar" hidden aria-label="Parar">${I.parar}</button></div>`}
+    <div class="guia-txt">${bl.slice(0, corte).map((x, i) => el(x, i)).join('')}
+      ${bl.length > corte ? `<div class="guia-mais" hidden>${bl.slice(corte).map((x, i) => el(x, i + corte)).join('')}</div>` : ''}</div>
+    ${bl.length > corte ? `<button class="b-link guia-ler" data-act="guia-ler">Ler tudo</button>` : ''}</div>`;
+}
+const VOZ = { i: 0, fila: [], tok: 0, estado: 'parado' };
+function vozPT() {
+  const v = speechSynthesis.getVoices();
+  return v.find((x) => /pt[-_]PT/i.test(x.lang)) || v.find((x) => /^pt/i.test(x.lang)) || null;
+}
+function guiaUI() {
+  const b = document.querySelector('.b-ouvir'); if (!b) return;
+  const st = VOZ.estado;
+  b.innerHTML = st === 'a-ler' ? `${I.pausa}<span>Pausa</span>` : `${I.ouvir}<span>${st === 'pausa' ? 'Continuar' : 'Ouvir o guia'}</span>`;
+  b.classList.toggle('on', st === 'a-ler');
+  document.querySelector('.b-parar').hidden = st === 'parado';
+  document.querySelectorAll('.guia [data-gi]').forEach((e) => e.classList.toggle('a-ler', st !== 'parado' && Number(e.dataset.gi) === VOZ.i));
+}
+function guiaAbrir(abrir = true) {
+  const m = document.querySelector('.guia-mais'), l = document.querySelector('.guia-ler'); if (!m) return;
+  m.hidden = !abrir; if (l) l.textContent = abrir ? 'Mostrar menos' : 'Ler tudo';
+}
+function guiaFalar() {
+  const tok = ++VOZ.tok;
+  if (VOZ.i >= VOZ.fila.length) { VOZ.estado = 'parado'; VOZ.i = 0; return guiaUI(); }
+  const u = new SpeechSynthesisUtterance(VOZ.fila[VOZ.i]);
+  u.lang = 'pt-PT'; const v = vozPT(); if (v) u.voice = v; u.rate = 1;
+  u.onend = () => { if (tok !== VOZ.tok || VOZ.estado !== 'a-ler') return; VOZ.i++; guiaFalar(); };
+  u.onerror = u.onend;
+  VOZ.estado = 'a-ler'; guiaUI();
+  const alvo = document.querySelector(`.guia [data-gi="${VOZ.i}"]`);
+  if (alvo) { if (alvo.closest('.guia-mais')?.hidden) guiaAbrir(true); const r = alvo.getBoundingClientRect(); if (r.top < 80 || r.bottom > innerHeight - 100) alvo.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  speechSynthesis.speak(u);
+}
+function guiaParar(reset = true) { VOZ.tok++; try { speechSynthesis.cancel(); } catch {} VOZ.estado = reset ? 'parado' : 'pausa'; if (reset) VOZ.i = 0; guiaUI(); }
+window.addEventListener('hashchange', () => { if (VOZ.estado !== 'parado') guiaParar(); });
+// ---------- Leitor do áudio do guia (voz natural gravada) ----------
+const mmss = (t) => isFinite(t) ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}` : '–:–';
+function leitorLigar() {
+  const au = document.getElementById('guia-audio'); if (!au || au._lig) return; au._lig = true;
+  const L = au.closest('.leitor'), barra = L.querySelector('.lt-barra');
+  const pinta = () => { const p = au.duration ? au.currentTime / au.duration : 0; barra.value = Math.round(p * 1000); barra.style.setProperty('--p', (p * 100) + '%');
+    L.querySelector('.lt-at').textContent = mmss(au.currentTime); L.querySelector('.lt-tot').textContent = mmss(au.duration); };
+  const estado = () => { const on = !au.paused; L.classList.toggle('on', on);
+    L.querySelector('.lt-play').innerHTML = on ? I.pausa : I.ouvir; L.querySelector('.lt-play').setAttribute('aria-label', on ? 'Pausa' : 'Ouvir o guia');
+    L.querySelector('.lt-tit').textContent = on ? 'A ouvir o guia' : (au.currentTime > 0 && !au.ended ? 'Em pausa' : 'Ouvir o guia'); };
+  au.addEventListener('loadedmetadata', () => { pinta(); const m = document.querySelector('.guia-min'); if (m && isFinite(au.duration)) m.textContent = `${Math.max(1, Math.round(au.duration / 60))} min a ouvir`; }); au.addEventListener('timeupdate', pinta);
+  au.addEventListener('play', estado); au.addEventListener('pause', estado); au.addEventListener('ended', () => { au.currentTime = 0; estado(); pinta(); });
+  au.addEventListener('error', () => { L.querySelector('.lt-tit').textContent = 'Não foi possível carregar o áudio'; });
+  barra.addEventListener('input', () => { if (au.duration) au.currentTime = (barra.value / 1000) * au.duration; pinta(); });
+  if ('mediaSession' in navigator) au.addEventListener('play', () => { try { navigator.mediaSession.metadata = new MediaMetadata({ title: L.dataset.titulo || 'Guia', artist: 'Roteiros Miguel' }); } catch {} });
+}
+window.addEventListener('hashchange', () => { const au = document.getElementById('guia-audio'); if (au) au.pause(); });
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+
 document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-act]'); if (!el) return;
   const a = el.dataset.act, id = el.dataset.id;
   try {
+    if (a === 'aud-play') { const au = document.getElementById('guia-audio'); leitorLigar(); if (au.paused) { if (VOZ.estado !== 'parado') guiaParar(); await au.play().catch(() => toast('Não foi possível tocar o áudio.')); } else au.pause(); return; }
+    if (a === 'aud-vel') { const au = document.getElementById('guia-audio'); const seq = [1, 1.25, 1.5, 0.85]; const n = seq[(seq.indexOf(au.playbackRate) + 1) % seq.length] || 1; au.playbackRate = n; el.textContent = String(n).replace('.', ',') + '×'; return; }
+    if (a === 'guia-ler') { return guiaAbrir(document.querySelector('.guia-mais').hidden); }
+    if (a === 'guia-parar') return guiaParar(true);
+    if (a === 'guia-ouvir') {
+      if (!('speechSynthesis' in window)) return toast('Este ecrã não tem voz disponível. Abre a app no Safari ou no Chrome para ouvir o guia.');
+      if (VOZ.estado === 'a-ler') return guiaParar(false);
+      if (VOZ.estado === 'parado') { VOZ.fila = [...document.querySelectorAll('.guia [data-gi]')].map((x) => x.textContent); VOZ.i = 0; }
+      return guiaFalar();
+    }
     if (a === 'sair') { await sb.auth.signOut(); const t = localStorage.getItem('tema'); localStorage.clear(); if (t) localStorage.setItem('tema', t); location.hash = '#/login'; return; }
     if (a === 'esqueci') { const email = document.querySelector('[name=email]').value; if (!email) return toast('Escreve primeiro o teu email.');
       await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname }); return toast('Enviámos um email para definires nova password.'); }
@@ -678,7 +981,8 @@ document.addEventListener('click', async (e) => {
       return op(sb.from('trips').update({ info }).eq('id', S.tripId), 'Opção escolhida.'); }
     if (a === 'ver-bilhete') { const u = await abrirBilhete(el.dataset.path); return u ? window.open(u, '_blank') : toast('Bilhete indisponível sem rede. Usa "Guardar bilhetes neste telemóvel".'); }
     if (a === 'apagar-bilhete') { if (!confirm('Apagar este bilhete?')) return; await apagarFicheiro('tickets', el.dataset.path); return op(sb.from('tickets').delete().eq('id', id), 'Bilhete apagado.'); }
-    if (a === 'apagar-foto') { if (!confirm('Apagar esta foto?')) return; if (el.dataset.path) await apagarFicheiro('photos', el.dataset.path); return op(sb.from('activity_photos').delete().eq('id', id)); }
+    if (a === 'gerir-fotos') { return gerirFotos(id); }
+    if (a === 'apagar-foto') { if (!confirm('Apagar esta fotografia? Não é possível desfazer.')) return; document.querySelector('.folha-fundo')?.remove(); if (el.dataset.path) await apagarFicheiro('photos', el.dataset.path); return op(sb.from('activity_photos').delete().eq('id', id), 'Fotografia apagada.'); }
     if (a === 'novo-lembrete') return fLembrete(el.dataset.campo, id);
     if (a === 'apagar-lembrete') return op(sb.from('reminders').delete().eq('id', id), 'Lembrete apagado.');
     if (a === 'calendario') { const at = S.b.activities.find((x) => x.id === id); const d = S.b.days.find((x) => x.id === at.day_id);
@@ -696,6 +1000,10 @@ document.addEventListener('click', async (e) => {
     if (a === 'hotel-cancelar') { if (!confirm('Marcar esta reserva como cancelada? Fica guardada em "Reservas canceladas".')) return;
       return op(sb.from('hotels').update({ status: 'cancelado' }).eq('id', id), 'Reserva marcada como cancelada.'); }
     if (a === 'reserva') return fReserva(id);
+    if (a === 'ficha-transporte') return fichaTransporte(id);
+    if (a === 'cambio') return fCambio();
+    if (a === 'mapa-dia') { const g = S.mapa?.grupos?.[el.dataset.n]; if (!g) return; const on = el.getAttribute('aria-pressed') === 'true';
+      el.setAttribute('aria-pressed', String(!on)); el.classList.toggle('on', !on); if (on) S.mapa.mapa.removeLayer(g); else g.addTo(S.mapa.mapa); return; }
     if (a === 'escolher-membro') return fMembroDoc(el.dataset.campo, id);
     if (a === 'convidar') return fConvidar();
     if (a === 'remover-membro') { if (!confirm('Remover esta pessoa da viagem?')) return; return op(sb.from('trip_members').delete().eq('id', id), 'Removido.'); }
@@ -710,7 +1018,7 @@ document.addEventListener('change', async (e) => {
     const up = el.dataset.up; if (!up || !el.files?.length) return;
     toast('A enviar…');
     if (up === 'bilhete') return guardarBilhete(el.files[0], { [el.dataset.campo]: el.dataset.id, member_id: el.dataset.membro });
-    if (up === 'foto-ativ') { for (const f of el.files) { const path = await enviarFicheiro('photos', S.tripId, await comprimir(f), 'atividades'); await sb.from('activity_photos').insert({ trip_id: S.tripId, activity_id: el.dataset.id, path }); } return recarregar(); }
+    if (up === 'foto-ativ') { document.querySelector('.folha-fundo')?.remove(); for (const f of el.files) { const path = await enviarFicheiro('photos', S.tripId, await comprimir(f), 'atividades'); await sb.from('activity_photos').insert({ trip_id: S.tripId, activity_id: el.dataset.id, path }); } return recarregar(); }
     if (up === 'foto-dia') { const path = await enviarFicheiro('photos', S.tripId, await comprimir(el.files[0]), 'dias'); return op(sb.from('days').update({ photo_path: path }).eq('id', el.dataset.id), 'Foto guardada.'); }
   } catch (err) { toast(err.message || 'Não foi possível enviar.'); }
 });
@@ -729,15 +1037,17 @@ async function router() {
     render('<main class="pag"><p class="carrega">A carregar a viagem…</p></main>');
     S.tripId = id;
     try { S.b = await carregarViagem(id); } catch { S.b = null; toast('Não foi possível abrir esta viagem.'); return vViagens(); }
+    atualizarCambio();
     setTimeout(completarFotos, 1500);
   }
   const v = parts[2];
-  if (!v) { const n = diaDeHoje(); location.replace(n ? `#/v/${id}/dia/${n}` : `#/v/${id}/resumo`); return; }
+  if (!v) { try { history.replaceState(null, '', `#/v/${id}/resumo`); } catch { /* pré-visualização */ } return vResumo(); }
   const m = {
     dia: () => vDia(Number(parts[3]) || 1),
     a: () => { const at = S.b.activities.find((x) => x.id === parts[3]); const d = at && S.b.days.find((x) => x.id === at.day_id);
+      if (at && parts[4] === 'r') return ehPC() ? vRanking(parts[5], at.ext_key) : vAtividade(parts[3], false, `#/v/${id}/ranking/${parts[5]}/${at.ext_key}`);
       return ehPC() && d ? vDia(d.day_number, at.id) : vAtividade(parts[3]); }, resumo: vResumo, hoteis: vHoteis, transportes: vTransportes, mais: vMais,
-    reservas: vReservas, checklist: vChecklist, ranking: () => vRanking(parts[3], parts[4]), secao: () => vSecao(parts[3]), participantes: vParticipantes, exportar: vExportar,
+    mapa: () => vMapa(parts[3]), reservas: vReservas, checklist: vChecklist, ranking: () => vRanking(parts[3], parts[4]), secao: () => vSecao(parts[3]), participantes: vParticipantes, exportar: vExportar,
   };
   return (m[v] || vResumo)();
 }
