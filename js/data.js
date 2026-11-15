@@ -93,23 +93,31 @@ export async function abrirBilhete(path) {
 // fotos livres da Wikimedia Commons (a partir do artigo da Wikipédia de cada local)
 const semHtml = (s) => String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 const MAU = /(logo|map|mapa|plan|flag|coat|icon|wappen|location|locator|diagram|seal|symbol|signature|\.svg|\.png|\.gif|\.tif)/i;
-export async function fotosWiki(titulo, max = 4) {
-  const k = 'wiki4:' + titulo;
+export async function fotosWiki(titulo, max = 10) {
+  const k = 'wiki5:' + titulo;
   try { const c = localStorage.getItem(k); if (c) return JSON.parse(c); } catch { /* sem cache */ }
   const api = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1';
-  const r1 = await fetch(`${api}&prop=pageimages|images&piprop=name&imlimit=60&titles=${encodeURIComponent(titulo)}`).then((r) => r.json());
+  const capi = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*';
+  // 1) as imagens do artigo da Wikipédia (a principal primeiro)
+  const r1 = await fetch(`${api}&prop=pageimages|images&piprop=name&imlimit=60&titles=${encodeURIComponent(titulo)}`).then((r) => r.json()).catch(() => null);
   const pg = Object.values(r1?.query?.pages || {})[0] || {};
-  const nomes = [pg.pageimage, ...(pg.images || []).map((x) => x.title.replace(/^File:/, ''))].filter(Boolean)
-    .filter((n, i, a) => a.indexOf(n) === i && /\.jpe?g$/i.test(n) && !MAU.test(n)).slice(0, 12);
+  const nomeLimpo = (pg.title || titulo).replace(/\s*\(.*\)\s*$/, '');
+  let nomes = [pg.pageimage, ...(pg.images || []).map((x) => x.title.replace(/^File:/, ''))].filter(Boolean);
+  // 2) fotografias distinguidas como "Quality images" na Commons (as mais bonitas e bem tiradas)
+  const r0 = await fetch(`${capi}&list=search&srnamespace=6&srlimit=20&srsearch=${encodeURIComponent(`"${nomeLimpo}" incategory:Quality_images filetype:bitmap`)}`).then((r) => r.json()).catch(() => null);
+  const qi = (r0?.query?.search || []).map((x) => x.title.replace(/^File:/, ''));
+  nomes = [nomes[0], ...qi, ...nomes.slice(1)].filter(Boolean)
+    .filter((n, i, a) => a.indexOf(n) === i && /\.jpe?g$/i.test(n) && !MAU.test(n)).slice(0, 30);
   const res = [];
-  if (nomes.length) {
-    const r2 = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=1280&titles=${encodeURIComponent(nomes.map((n) => 'File:' + n).join('|'))}`).then((r) => r.json());
+  for (let i = 0; i < nomes.length && res.length < max; i += 15) {
+    const lote = nomes.slice(i, i + 15);
+    const r2 = await fetch(`${capi}&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=1600&titles=${encodeURIComponent(lote.map((n) => 'File:' + n).join('|'))}`).then((r) => r.json()).catch(() => null);
     const paginas = Object.values(r2?.query?.pages || {});
-    for (const n of nomes) {
+    for (const n of lote) {
       const p = paginas.find((x) => x.title?.replace(/^File:/, '').replace(/_/g, ' ') === n.replace(/_/g, ' '));
       const ii = p?.imageinfo?.[0]; const lic = ii?.extmetadata?.LicenseShortName?.value || '';
-      // só imagens alojadas na Commons, com licença livre e em formato paisagem razoável
-      if (!ii || p.missing !== undefined || !lic || /fair use|non-free/i.test(lic) || (ii.width && ii.width < 800)) continue;
+      // só imagens alojadas na Commons, com licença livre e com boa resolução
+      if (!ii || p.missing !== undefined || !lic || /fair use|non-free/i.test(lic) || (ii.width && ii.width < 1000)) continue;
       res.push({ url: ii.thumburl || ii.url, credit: `${semHtml(ii.extmetadata?.Artist?.value) || 'Autor na Wikimedia Commons'} · ${lic}`, source: ii.descriptionurl });
       if (res.length >= max) break;
     }

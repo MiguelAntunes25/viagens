@@ -19,6 +19,7 @@ const icT = (m, p = '') => `<span class="ict ${m || 'comboio'} ${p}" aria-hidden
 const EST_T = { por_comprar: 'Por comprar', pago: 'Pago', compra_no_dia: 'Compra no dia', incluido: 'Incluído' };
 const estT = (st) => `<span class="estT ${st || 'por_comprar'}">${EST_T[st] || EST_T.por_comprar}</span>`;
 const I = {
+  fotos: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg>',
   ouvir: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
   pausa: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
   parar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
@@ -33,14 +34,15 @@ const I = {
   mais: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
 };
 const LOGO = '<svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true"><polygon points="16,28 38,20 38,74 16,82" fill="#E3D3B6"/><polygon points="38,20 62,28 62,82 38,74" fill="#CDB993"/><polygon points="62,28 84,20 84,74 62,82" fill="#E3D3B6"/><path d="M22 66 Q 32 50 44 57 T 66 47" fill="none" stroke="#13283A" stroke-width="3" stroke-dasharray="2 4" stroke-linecap="round"/><path d="M70 30 a9 9 0 0 1 9 9 c0 7 -9 15 -9 15 s-9 -8 -9 -15 a9 9 0 0 1 9 -9z" fill="#13283A"/><circle cx="70" cy="39" r="3.2" fill="#E3D3B6"/></svg>';
-const NAV = [['resumo', 'Resumo', '<path d="M4 6h16M4 12h16M4 18h10"/>'], ['dia', 'Dia', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
-  ['hoteis', 'Hotéis', '<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/>'], ['transportes', 'Transportes', '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l2-4M16 21l-2-4"/>'],
-  ['mais', 'Mais', '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>']];
+const NAV = [['resumo', 'Resumo', '<path d="M4 6h16M4 12h16M4 18h10"/>'], ['dia', 'Dia', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], ['hoteis', 'Hotéis', '<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/>'], ['ranking', 'Rankings', '<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/>'], ['transportes', 'Transportes', '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l2-4M16 21l-2-4"/>'], ['mais', 'Mais', '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>']];
 
 function nav(ativo) {
   const id = S.tripId; const hoje = diaDeHoje();
-  return `<nav class="nav" aria-label="Navegação principal">${NAV.map(([k, t, p]) => {
-    const href = k === 'dia' ? `#/v/${id}/dia/${hoje || ultimoDia() || 1}` : `#/v/${id}/${k}`;
+  const nItens = NAV.length - (S.b?.rankings.length ? 0 : 1);
+  return `<nav class="nav" style="grid-template-columns:repeat(${nItens},minmax(0,1fr))" aria-label="Navegação principal">${NAV.map(([k, t, p]) => {
+    const rkp = S.b?.rankings.find((r) => r.is_primary) || S.b?.rankings[0];
+    if (k === 'ranking' && !rkp) return '';
+    const href = k === 'dia' ? `#/v/${id}/dia/${hoje || ultimoDia() || 1}` : k === 'ranking' ? `#/v/${id}/ranking` : `#/v/${id}/${k}`;
     return `<a class="nav-b ${k === ativo ? 'on' : ''}" href="${href}" ${k === ativo ? 'aria-current="page"' : ''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">${p}</svg>${t}</a>`;
   }).join('')}</nav>`;
 }
@@ -82,8 +84,8 @@ function lateral() {
   const ativo = v === 'a' && p[4] === 'r' ? 'ranking' : ['dia', 'a'].includes(v) ? 'dia' : ['ranking', 'reservas', 'resumo', 'hoteis', 'transportes'].includes(v) ? v : 'mais';
   const diaAtual = Number(sessionStorage.getItem('ultimoDia:' + id)) || diaDeHoje() || 1;
   const rk = b.rankings.find((r) => r.is_primary) || b.rankings[0];
-  const it = [['resumo', 'Resumo'], ['dia', 'Dia', `#/v/${id}/dia/${diaAtual}`], ['hoteis', 'Hotéis'], ['transportes', 'Transportes'],
-    ...(rk ? [['ranking', 'Ranking', `#/v/${id}/ranking/${rk.id}`]] : []), ...(b.isOwner ? [['reservas', 'Reservas']] : []), ['mais', 'Mais']];
+  const it = [['resumo', 'Resumo'], ['dia', 'Dia', `#/v/${id}/dia/${diaAtual}`], ['hoteis', 'Hotéis'],
+    ...(rk ? [['ranking', 'Rankings', `#/v/${id}/ranking`]] : []), ['transportes', 'Transportes'], ...(b.isOwner ? [['reservas', 'Reservas']] : []), ['mais', 'Mais']];
   return `<aside class="lateral" aria-label="Navegação">
     <a class="lat-marca" href="#/">${LOGO}<span>Roteiros Miguel</span></a>
     <div><h2>${esc(b.trip.title)}</h2><p>${intervalo(b.trip.start_date, b.trip.end_date)}</p></div>
@@ -98,7 +100,38 @@ function render(html) {
   window.scrollTo(0, 0);
   ajustarTitulos();
   leitorLigar();
+  pintarTempo();
+  let ent = null; try { ent = sessionStorage.getItem('entrada'); sessionStorage.removeItem('entrada'); } catch {}
+  if (ent) document.querySelector('main.dia .dia-col')?.classList.add('entra-' + ent);
 }
+// ---------- deslizar o dedo no ecrã do dia para mudar de dia (telemóvel) ----------
+(() => {
+  let x0 = 0, y0 = 0, t0 = 0, ativo = false, horiz = null, col = null;
+  const ignora = (el) => el.closest('.galeria, .opcoes, .rk-tabs, .mp-leg, .tk-grid, .lt-barra, input, textarea, select, .folha-fundo, .leaflet-container, .lbx');
+  const noDia = () => /^#\/v\/[^/]+\/dia\//.test(location.hash) && !ehPC() && document.querySelector('main.dia');
+  const vizinho = (d) => { const n = Number(location.hash.split('/')[4]) || 1; return S.b?.days.find((x) => x.day_number === n + d); };
+  document.addEventListener('touchstart', (e) => {
+    if (!noDia() || e.touches.length !== 1 || ignora(e.target)) { ativo = false; return; }
+    ativo = true; horiz = null; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); col = document.querySelector('main.dia .dia-col');
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!ativo) return; const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
+    if (horiz === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) horiz = Math.abs(dx) > Math.abs(dy) * 1.3;
+    if (!horiz) return;
+    const temOutro = !!vizinho(dx < 0 ? 1 : -1);
+    col.style.transition = 'none'; col.style.transform = `translateX(${temOutro ? dx : dx / 4}px)`; col.style.opacity = String(1 - Math.min(Math.abs(dx) / 900, 0.35));
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!ativo || !horiz) { ativo = false; return; } ativo = false;
+    const dx = e.changedTouches[0].clientX - x0, rapido = Date.now() - t0 < 350;
+    const alvo = vizinho(dx < 0 ? 1 : -1);
+    if (alvo && (Math.abs(dx) > window.innerWidth * 0.28 || (rapido && Math.abs(dx) > 50))) {
+      col.style.transition = 'transform .18s ease-out, opacity .18s'; col.style.transform = `translateX(${dx < 0 ? -window.innerWidth : window.innerWidth}px)`; col.style.opacity = '0';
+      try { sessionStorage.setItem('entrada', dx < 0 ? 'dir' : 'esq'); } catch {}
+      setTimeout(() => { location.hash = `#/v/${S.tripId}/dia/${alvo.day_number}`; }, 170);
+    } else { col.style.transition = 'transform .2s ease-out, opacity .2s'; col.style.transform = ''; col.style.opacity = ''; }
+  }, { passive: true });
+})();
 // o nome das cidades fica sempre numa só linha: a letra encolhe até caber
 function ajustarTitulos() {
   document.querySelectorAll('.cab-titulo').forEach(h => {
@@ -150,9 +183,9 @@ const area = (n, l, v = '') => `<label class="campo"><span>${l}</span><textarea 
 const escolha = (n, l, ops, v) => `<label class="campo"><span>${l}</span><select name="${n}">${ops.map(([k, t]) => `<option value="${esc(k)}" ${String(k) === String(v ?? '') ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
 
 async function completarFotos() {
-  const b = S.b; if (!b?.isOwner || b.offline || sessionStorage.getItem('fotos2:' + S.tripId)) return;
-  sessionStorage.setItem('fotos2:' + S.tripId, '1');
-  const MAX = 4; const cache = {}; const novas = [];
+  const b = S.b; if (!b?.isOwner || b.offline || sessionStorage.getItem('fotos3:' + S.tripId)) return;
+  sessionStorage.setItem('fotos3:' + S.tripId, '1');
+  const MAX = 10; const cache = {}; const novas = [];
   for (const a of b.activities.filter((x) => x.wiki_title)) {
     const ja = b.photos.filter((p) => p.activity_id === a.id && p.external_url);
     if (ja.length >= MAX) continue;
@@ -164,6 +197,37 @@ async function completarFotos() {
     }
   }
   if (novas.length) { const { error } = await sb.from('activity_photos').insert(novas); if (!error) await recarregar(); }
+}
+// ---------- fotografias em ecrã inteiro ----------
+async function fotosDe(lista) {
+  const urls = await urlsAssinados('photos', lista.filter((p) => p.path && !p.external_url).map((p) => p.path));
+  return lista.map((p) => ({ url: p.external_url || urls[p.path], credit: p.credit, source: p.source_url })).filter((x) => x.url);
+}
+function verFotos(fotos, i = 0, titulo = '') {
+  if (!fotos.length) return;
+  const w = document.createElement('div'); w.className = 'lbx'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-label', 'Fotografias');
+  w.innerHTML = `<div class="lb-top"><span class="lb-t">${esc(titulo)}</span><span class="lb-n"></span><button class="lb-x" aria-label="Fechar">✕</button></div>
+    <div class="lb-pista">${fotos.map((f) => `<figure class="lb-f"><img src="${esc(f.url)}" alt="" loading="lazy" decoding="async"></figure>`).join('')}</div>
+    <button class="lb-seta ant" aria-label="Fotografia anterior">‹</button><button class="lb-seta seg" aria-label="Fotografia seguinte">›</button>
+    <div class="lb-cred"></div>`;
+  document.body.appendChild(w); document.body.classList.add('lb-aberto');
+  const pista = w.querySelector('.lb-pista');
+  const mostra = (k, suave = true) => { i = Math.max(0, Math.min(fotos.length - 1, k)); pista.scrollTo({ left: i * pista.clientWidth, behavior: suave ? 'smooth' : 'auto' });
+    w.querySelector('.lb-n').textContent = `${i + 1} / ${fotos.length}`; const f = fotos[i];
+    w.querySelector('.lb-cred').innerHTML = f.credit ? (f.source ? `<a href="${esc(f.source)}" target="_blank" rel="noopener">Foto: ${esc(f.credit)}</a>` : `Foto: ${esc(f.credit)}`) : '';
+    w.querySelector('.ant').hidden = i === 0; w.querySelector('.seg').hidden = i === fotos.length - 1; };
+  pista.addEventListener('scroll', () => { const k = Math.round(pista.scrollLeft / pista.clientWidth); if (k !== i) { i = k; mostra(k, false); } }, { passive: true });
+  const fechar = () => { w.remove(); document.body.classList.remove('lb-aberto'); document.removeEventListener('keydown', tecla); };
+  const tecla = (e) => { if (e.key === 'Escape') fechar(); if (e.key === 'ArrowRight') mostra(i + 1); if (e.key === 'ArrowLeft') mostra(i - 1); };
+  document.addEventListener('keydown', tecla);
+  w.addEventListener('click', (e) => { if (e.target.closest('.lb-x')) return fechar(); if (e.target.closest('.ant')) return mostra(i - 1); if (e.target.closest('.seg')) return mostra(i + 1); });
+  requestAnimationFrame(() => mostra(i, false));
+}
+async function fotosDoDiaTodas(day) {
+  const acts = atividadesDoDia(day).lista; const lista = [];
+  if (day.photo_path) lista.push({ path: day.photo_path });
+  acts.forEach((a) => S.b.photos.filter((p) => p.activity_id === a.id).forEach((p) => lista.push(p)));
+  const vistos = new Set(); return (await fotosDe(lista)).filter((f) => !vistos.has(f.url) && vistos.add(f.url));
 }
 const credito = (p) => p?.credit ? `<a class="credito" href="${esc(p.source_url || '#')}" target="_blank" rel="noopener">Foto: ${esc(p.credit)}</a>` : '';
 function fotoDoDia(day) {
@@ -242,7 +306,8 @@ async function vDia(n, selId) {
   };
 
   render(`<main class="dia ${foto ? '' : 'sem-foto'}"><div class="dia-col">
-    <div class="foto-dia" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${credito(fotoExt)}${!day.photo_path && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
+    <div class="foto-dia" data-act="ver-fotos-dia" data-id="${day.id}" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${credito(fotoExt)}
+      ${foto ? `<button class="foto-ver" data-act="ver-fotos-dia" data-id="${day.id}">${I.fotos}Fotos do dia</button>` : ''}${!day.photo_path && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
     <header class="cab cab3">
       <h1 class="cab-titulo">${esc(day.city || '')}</h1>
       <div class="cab-linha">
@@ -250,6 +315,7 @@ async function vDia(n, selId) {
         <div class="cab-data">${dataLonga(day.date)}</div>
         <div class="cab-lado dir">${next ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${next.day_number}" aria-label="Dia seguinte">${I.seg}</a>` : ''}</div>
       </div>
+      <a class="tp-cartao" data-tempo="${day.date}" href="#/v/${S.tripId}/tempo/${day.day_number}/d"><span class="tp-sem">A carregar o tempo…</span></a>
       ${rota ? `<a class="cab-mapa" href="${rota}">${I.mapa}<span>Mapa do dia</span></a>` : ''}
     </header>
     <section class="painel">
@@ -278,7 +344,7 @@ async function vAtividade(id, comoPainel = false, voltar = null) {
   const temLocal = a.lat != null || a.maps_query || a.place_name;
   const semFoto = !fotos.length;
   const html = (`
-    ${semFoto ? '' : `<div class="galeria" id="galeria">${fotos.map((p) => `<div class="g-foto" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}</div>`).join('')}</div>
+    ${semFoto ? '' : `<div class="galeria" id="galeria">${fotos.map((p) => `<div class="g-foto" data-act="ver-fotos-ativ" data-id="${a.id}" data-i="${fotos.indexOf(p)}" style="background-image:url('${esc(p.external_url || urls[p.path] || '')}')">${credito(p)}</div>`).join('')}</div>
     <div class="vinheta-f"></div>`}
     <div class="ficha-top"><a class="b-ic esc" href="${voltar || `#/v/${S.tripId}/dia/${day?.day_number || 1}`}" aria-label="Voltar ao dia">${I.voltar}</a>
       <span class="g-n">${fotos.length ? `${fotos.length} foto${fotos.length > 1 ? 's' : ''}` : ''}</span></div>
@@ -316,6 +382,160 @@ async function vAtividade(id, comoPainel = false, voltar = null) {
 }
 
 // ---------- resumo (linha do tempo) ----------
+// os imperdíveis no ecrã principal: o ranking escolhido em cartões que deslizam; tocar abre a ficha
+function blocoRanking() {
+  const b = S.b; if (!b.rankings.length) return '';
+  const ord = b.rankings.slice().sort((x, y) => (y.is_primary ? 1 : 0) - (x.is_primary ? 1 : 0) || (x.sort_order || 0) - (y.sort_order || 0));
+  let rid = null; try { rid = sessionStorage.getItem('rkResumo:' + S.tripId); } catch {}
+  const r = ord.find((x) => x.id === rid) || ord[0];
+  const nItens = (x) => b.rankingItems.filter((i) => i.ranking_id === x.id).length;
+  const items = b.rankingItems.filter((i) => i.ranking_id === r.id).sort((x, y) => x.position - y.position);
+  const linha = (i) => { const acts = b.activities.filter((x) => (i.activity_ext_keys || []).includes(x.ext_key)); const a = acts[0];
+    const dias = [...new Map(acts.map((x) => b.days.find((d) => d.id === x.day_id)).filter(Boolean).map((d) => [d.id, d])).values()].sort((x, y) => x.day_number - y.day_number);
+    const foto = a && b.photos.find((p) => acts.some((x) => x.id === p.activity_id) && p.external_url);
+    const corpo = `<span class="rk-n">${i.position}</span>${foto ? `<span class="rk-foto" style="background-image:url('${esc(foto.external_url)}')"></span>` : ''}<span class="rk-c"><strong>${esc(i.title)}</strong></span>`;
+    return `<li>${a ? `<a class="rk-main" href="#/v/${S.tripId}/a/${a.id}/r/${r.id}/resumo">${corpo}</a>` : `<div class="rk-main">${corpo}</div>`}
+      <div class="rk-dias">${dias.length ? dias.map((d) => `<a class="rk-dia" href="#/v/${S.tripId}/dia/${d.day_number}">Dia ${d.day_number} · ${dataCurta(d.date)}</a>`).join('') : '<span class="rk-fora">Fora do roteiro</span>'}</div></li>`; };
+  return `<section class="rs-rank"><h2 class="sec">Rankings <span class="rs-n">${ord.length}</span></h2>
+    <div class="rr-lista-rk" role="tablist" aria-label="Rankings da viagem">${ord.map((x) => `<button class="rr-rk ${x.id === r.id ? 'on' : ''}" role="tab" aria-selected="${x.id === r.id}" data-act="rk-resumo" data-id="${x.id}"><span>${esc(x.title)}</span><b>${nItens(x)}</b></button>`).join('')}</div>
+    <ol class="rank rank2 rr-top">${items.slice(0, 5).map(linha).join('')}</ol>
+    ${items.length > 5 ? `<a class="b-sec b-larga rr-todos" href="#/v/${S.tripId}/ranking/${r.id}">Ver o ranking completo (${items.length})</a>` : ''}</section>`;
+}
+// ---------- tempo (Open-Meteo): previsão até 16 dias antes; antes disso, o que aconteceu nos últimos 10 anos nesses dias ----------
+// local de cada dia = onde se passa mais tempo (pela duração das atividades), não onde se dorme
+function localDoDia(d) {
+  const acts = atividadesDoDia(d).lista.filter((a) => a.lat != null && a.lng != null && !a.transport_mode);
+  if (!acts.length) { // sem atividades com localização: o hotel dessa noite (ou de onde se sai nesse dia)
+    const h = S.b.hotels.find((x) => x.lat != null && x.status !== 'cancelado' && x.check_in <= d.date && d.date <= x.check_out);
+    return h ? { lat: +Number(h.lat).toFixed(2), lng: +Number(h.lng).toFixed(2) } : null; }
+  const grupos = [];
+  acts.forEach((a) => { const w = Math.max(15, a.duration_min || 30);
+    const g = grupos.find((x) => Math.hypot(x.lat - a.lat, (x.lng - a.lng) * Math.cos(a.lat * Math.PI / 180)) < 0.25);
+    if (g) { g.lat = (g.lat * g.w + a.lat * w) / (g.w + w); g.lng = (g.lng * g.w + a.lng * w) / (g.w + w); g.w += w; } else grupos.push({ lat: a.lat, lng: a.lng, w }); });
+  grupos.sort((x, y) => y.w - x.w); return { lat: +grupos[0].lat.toFixed(2), lng: +grupos[0].lng.toFixed(2) };
+}
+const WMO = (c) => c == null ? 'nuvem' : c === 0 ? 'sol' : c <= 2 ? 'solnuvem' : c === 3 ? 'nuvem' : c <= 48 ? 'nevoeiro' : c <= 67 || (c >= 80 && c <= 82) ? 'chuva' : c <= 77 || c === 85 || c === 86 ? 'neve' : 'trovoada';
+const TEMPO_TXT = { sol: 'Sol', solnuvem: 'Sol e nuvens', nuvem: 'Nublado', nevoeiro: 'Nevoeiro', chuva: 'Chuva', neve: 'Neve', trovoada: 'Trovoada' };
+// ícones a cores, como nas apps de meteorologia
+const SVG_SOL = (cx, cy, r) => `<g stroke="#FFAE1A" stroke-width="3.2" stroke-linecap="round">${[0, 45, 90, 135, 180, 225, 270, 315].map((g) => { const a = g * Math.PI / 180; return `<line x1="${(cx + Math.cos(a) * (r + 4)).toFixed(1)}" y1="${(cy + Math.sin(a) * (r + 4)).toFixed(1)}" x2="${(cx + Math.cos(a) * (r + 8.5)).toFixed(1)}" y2="${(cy + Math.sin(a) * (r + 8.5)).toFixed(1)}"/>`; }).join('')}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="#FFC93C" stroke="#FFAE1A" stroke-width="2"/>`;
+const SVG_NUVEM = (esc_) => `<path d="M19 48h27a10.5 10.5 0 0 0 1.2-20.9A14.5 14.5 0 0 0 19.6 30 9 9 0 0 0 19 48z" fill="${esc_ ? '#AEB9C6' : '#EEF2F6'}" stroke="${esc_ ? '#7F8D9D' : '#AFBBC8'}" stroke-width="2.2" stroke-linejoin="round"/>`;
+const TICO = {
+  sol: SVG_SOL(32, 32, 12),
+  solnuvem: SVG_SOL(23, 23, 9) + SVG_NUVEM(false),
+  nuvem: `<path d="M38 22a11 11 0 0 1 19 6 8 8 0 0 1-3 15" fill="#D9E0E8" stroke="#AFBBC8" stroke-width="2"/>` + SVG_NUVEM(false),
+  nevoeiro: SVG_NUVEM(false).replace('48z', '48z') + `<g stroke="#9AA7B5" stroke-width="3" stroke-linecap="round"><line x1="12" y1="53" x2="50" y2="53"/><line x1="18" y1="59" x2="44" y2="59"/></g>`,
+  chuva: `<g transform="translate(0 -6)">${SVG_NUVEM(true)}</g><g stroke="#2E8BEA" stroke-width="3.4" stroke-linecap="round"><line x1="22" y1="48" x2="19" y2="56"/><line x1="32" y1="48" x2="29" y2="56"/><line x1="42" y1="48" x2="39" y2="56"/></g>`,
+  neve: `<g transform="translate(0 -6)">${SVG_NUVEM(false)}</g><g fill="#5DB3F0"><circle cx="21" cy="51" r="2.6"/><circle cx="32" cy="55" r="2.6"/><circle cx="43" cy="51" r="2.6"/></g>`,
+  trovoada: `<g transform="translate(0 -6)">${SVG_NUVEM(true)}</g><path d="M33 42l-7 11h6l-3 9 10-13h-6l4-7z" fill="#FFC93C" stroke="#F0A500" stroke-width="1.4" stroke-linejoin="round"/>`,
+};
+const icTempo = (t, cls = '') => `<svg class="tp-ic ${cls}" viewBox="0 0 64 64" aria-hidden="true">${TICO[t] || TICO.nuvem}</svg>`;
+const ROSA = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+const dirV = (g) => g == null ? '' : ROSA[Math.round(g / 45) % 8];
+const hm = (iso) => iso ? String(iso).slice(11, 16) : '—';
+const isoMais = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+const hojeTempo = () => window.__HOJE_TEMPO || new Date().toISOString().slice(0, 10);
+const med = (v) => v.length ? v.reduce((x, y) => x + y, 0) / v.length : null;
+async function nomeLocal(L) {
+  const k = 'geo:' + L.lat + ',' + L.lng; try { const c = localStorage.getItem(k); if (c) return c; } catch {}
+  try { const j = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=pt&lat=${L.lat}&lon=${L.lng}`).then((r) => r.json());
+    const a = j.address || {}; const n = a.city || a.town || a.village || a.municipality || ''; if (n) { try { localStorage.setItem(k, n); } catch {} } return n; } catch { return ''; }
+}
+let _tempoMem = null;
+async function tempoDaViagem() {
+  const b = S.b; const hoje = hojeTempo(); const limite = isoMais(hoje, 15);
+  const chave = 'tempo2:' + S.tripId + ':' + hoje + ':' + (b.trip.start_date <= limite ? new Date().getHours() >> 2 : 'n');
+  if (_tempoMem?.chave === chave) return _tempoMem.res;
+  try { const c = JSON.parse(localStorage.getItem(chave) || 'null'); if (c) { _tempoMem = { chave, res: c }; return c; } } catch {}
+  const locs = {}; let ult = null; b.days.forEach((d) => { const l = localDoDia(d) || ult; ult = l; if (l) (locs[l.lat + ',' + l.lng] = locs[l.lat + ',' + l.lng] || { ...l, dias: [] }).dias.push(d); });
+  const res = {};
+  await Promise.all(Object.values(locs).map(async (L) => {
+    const nome = (await nomeLocal(L)) || '';
+    const prev = L.dias.filter((d) => d.date >= hoje && d.date <= limite), norm = L.dias.filter((d) => !prev.includes(d));
+    if (prev.length) { try {
+      const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${L.lat}&longitude=${L.lng}&timezone=auto&start_date=${prev[0].date}&end_date=${prev[prev.length - 1].date}`
+        + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,uv_index_max,sunrise,sunset,sunshine_duration'
+        + '&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m').then((r) => r.json());
+      const D = j.daily || {}, H = j.hourly || {};
+      prev.forEach((d) => { const k = (D.time || []).indexOf(d.date); if (k < 0) return;
+        const horas = []; (H.time || []).forEach((t, h) => { if (t.startsWith(d.date) && Number(t.slice(11, 13)) >= 7) horas.push({ h: t.slice(11, 16), t: WMO(H.weather_code[h]), temp: Math.round(H.temperature_2m[h]), chuva: H.precipitation_probability[h], vento: Math.round(H.wind_speed_10m[h]) }); });
+        res[d.date] = { tipo: 'prev', local: nome, t: WMO(D.weather_code[k]), max: Math.round(D.temperature_2m_max[k]), min: Math.round(D.temperature_2m_min[k]), chuva: D.precipitation_probability_max[k],
+          mm: D.precipitation_sum[k], vento: Math.round(D.wind_speed_10m_max[k]), rajada: Math.round(D.wind_gusts_10m_max[k]), dir: D.wind_direction_10m_dominant[k], uv: D.uv_index_max[k],
+          nascer: hm(D.sunrise[k]), por: hm(D.sunset[k]), sol: D.sunshine_duration[k] != null ? +(D.sunshine_duration[k] / 3600).toFixed(1) : null, horas }; });
+    } catch {} }
+    if (norm.length) { try {
+      const a1 = Number(hoje.slice(0, 4)) - 1, a0 = a1 - 9;
+      const j = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${L.lat}&longitude=${L.lng}&timezone=auto&start_date=${a0}-01-01&end_date=${a1}-12-31`
+        + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_direction_10m_dominant,sunshine_duration,sunrise,sunset').then((r) => r.json());
+      const T = j.daily || {}; const idx = {}; (T.time || []).forEach((t, k) => { idx[t] = k; });
+      norm.forEach((d) => { const md = d.date.slice(5); const anos = []; const jan = [];
+        for (let a = a1; a >= a0; a--) {
+          const k = idx[a + '-' + md]; if (k != null && T.temperature_2m_max[k] != null) anos.push({ ano: a, t: WMO(T.weather_code[k]), max: Math.round(T.temperature_2m_max[k]), min: Math.round(T.temperature_2m_min[k]), mm: +(T.precipitation_sum[k] || 0).toFixed(1), vento: Math.round(T.wind_speed_10m_max[k]) });
+          for (let o = -3; o <= 3; o++) { const kk = idx[isoMais(a + '-' + md, o)]; if (kk != null && T.temperature_2m_max[kk] != null) jan.push(kk); }
+        }
+        if (!jan.length) return;
+        const chuvosos = jan.filter((k) => T.precipitation_sum[k] >= 1).length; const pc = Math.round(chuvosos / jan.length * 100);
+        const sol = med(jan.map((k) => (T.sunshine_duration[k] || 0) / 3600)); const kU = idx[a1 + '-' + md];
+        const luz = kU != null ? (new Date(T.sunset[kU]) - new Date(T.sunrise[kU])) / 36e5 : 13;
+        res[d.date] = { tipo: 'norm', local: nome, t: pc >= 50 ? 'chuva' : sol / luz >= 0.5 ? 'sol' : sol / luz >= 0.3 ? 'solnuvem' : 'nuvem',
+          max: Math.round(med(jan.map((k) => T.temperature_2m_max[k]))), min: Math.round(med(jan.map((k) => T.temperature_2m_min[k]))), chuva: pc,
+          mm: +med(jan.map((k) => T.precipitation_sum[k] || 0)).toFixed(1), vento: Math.round(med(jan.map((k) => T.wind_speed_10m_max[k]))),
+          dir: kU != null ? T.wind_direction_10m_dominant[kU] : null, sol: +sol.toFixed(1), nascer: kU != null ? hm(T.sunrise[kU]) : '—', por: kU != null ? hm(T.sunset[kU]) : '—',
+          maxAlto: Math.max(...anos.map((x) => x.max)), maxBaixo: Math.min(...anos.map((x) => x.max)), anos }; });
+    } catch {} }
+  }));
+  _tempoMem = { chave, res };
+  try { localStorage.setItem(chave, JSON.stringify(res)); } catch {}
+  return res;
+}
+// pinta o tempo onde houver lugares marcados com data-tempo (o ecrã aparece logo; o tempo chega depois)
+async function pintarTempo() {
+  if (!document.querySelector('[data-tempo]') || !S.b) return;
+  let T = {}; try { T = await tempoDaViagem(); } catch { return; }
+  document.querySelectorAll('[data-tempo]').forEach((el) => { const x = T[el.dataset.tempo];
+    if (!x) { el.innerHTML = el.classList.contains('tp-cartao') ? '<span class="tp-sem">Tempo indisponível</span>' : '<span class="tp-sem">—</span>'; return; }
+    if (el.classList.contains('tp-cartao')) el.innerHTML = `${icTempo(x.t, 'g')}<span class="tp-c-t"><b>${x.max}°</b><i>${x.min}°</i></span>
+      <span class="tp-c-txt"><b>${TEMPO_TXT[x.t]}</b><span>${x.chuva}% chuva · vento ${x.vento} km/h</span><small>${x.tipo === 'prev' ? 'Previsão' : 'Normal para a época'}${x.local ? ' · ' + esc(x.local) : ''}</small></span><span class="tp-c-seta">›</span>`;
+    else el.innerHTML = `${icTempo(x.t)}<b>${x.max}°</b><span>${x.min}°</span>`; });
+}
+// ecrã do tempo: a viagem toda, ou um dia em pormenor
+async function vTempo(n, origem) {
+  const b = S.b; const id = S.tripId; const dia = n ? b.days.find((d) => d.day_number === Number(n)) : null;
+  const voltar = dia ? (origem === 'd' ? `#/v/${id}/dia/${dia.day_number}` : `#/v/${id}/tempo`) : `#/v/${id}/resumo`;
+  const cab = (t, sub) => `<header class="mp-cab"><a class="b-ic" href="${voltar}" aria-label="Voltar">${I.voltar}</a><div><h1>${t}</h1><p>${sub}</p></div></header>`;
+  render(`<main class="pag com-nav tempo-pag">${cab(dia ? 'Tempo · Dia ' + dia.day_number : 'Tempo da viagem', dia ? dataLonga(dia.date) : esc(b.trip.title))}<p class="vazio">A carregar o tempo…</p>${nav(origem === 'd' ? 'dia' : 'resumo')}</main>`);
+  let T = {}; try { T = await tempoDaViagem(); } catch {}
+  if (!document.querySelector('.tempo-pag')) return;
+  const etiqueta = (x) => `<span class="tp-etq ${x.tipo}">${x.tipo === 'prev' ? 'Previsão' : 'Normal para a época'}</span>`;
+  if (!dia) {
+    const xs = b.days.map((d) => T[d.date]).filter(Boolean);
+    const resumo = xs.length ? `<div class="tp-resumo"><div><small>Temperaturas</small><b>${Math.min(...xs.map((x) => x.min))}° a ${Math.max(...xs.map((x) => x.max))}°</b></div>
+      <div><small>Vento médio</small><b>${Math.round(med(xs.map((x) => x.vento)))} km/h</b></div><div><small>Sol por dia</small><b>${xs.every((x) => x.sol != null) ? med(xs.map((x) => x.sol)).toFixed(1).replace('.', ',') + ' h' : '—'}</b></div></div>` : '';
+    const tipos = new Set(xs.map((x) => x.tipo));
+    render(`<main class="pag com-nav tempo-pag">${cab('Tempo da viagem', esc(b.trip.title))}${resumo}
+      <p class="tp-expl">${tipos.has('norm') ? `Para dias a mais de 16 dias de distância, os valores são o que aconteceu nesses dias nos últimos 10 anos. A previsão real aparece 16 dias antes.` : 'Previsão para os dias da viagem.'}</p>
+      <ol class="tp-lista">${b.days.map((d) => { const x = T[d.date]; return `<li><a href="#/v/${id}/tempo/${d.day_number}">
+        <span class="tp-l-dia"><b>Dia ${d.day_number}</b><small>${esc(dataCurta(d.date))}</small><small class="tp-l-loc">${esc(x?.local || d.city || '')}</small></span>
+        ${x ? `${icTempo(x.t, 'm')}<span class="tp-l-t"><b>${x.max}°</b><i>${x.min}°</i></span><span class="tp-l-x"><span>${TEMPO_TXT[x.t]}</span><small>${x.chuva}% chuva · ${x.vento} km/h</small></span>` : '<span class="tp-sem">Sem dados</span>'}
+        <span class="tp-c-seta">›</span></a></li>`; }).join('')}</ol>${nav('resumo')}</main>`);
+    return;
+  }
+  const x = T[dia.date]; const k = b.days.indexOf(dia); const ant = b.days[k - 1], seg = b.days[k + 1];
+  const navD = `<div class="tp-navd">${ant ? `<a href="#/v/${id}/tempo/${ant.day_number}${origem === 'd' ? '/d' : ''}">‹ Dia ${ant.day_number}</a>` : '<span></span>'}${seg ? `<a href="#/v/${id}/tempo/${seg.day_number}${origem === 'd' ? '/d' : ''}">Dia ${seg.day_number} ›</a>` : '<span></span>'}</div>`;
+  if (!x) { render(`<main class="pag com-nav tempo-pag">${cab('Tempo · Dia ' + dia.day_number, dataLonga(dia.date))}${navD}<p class="vazio">Não foi possível obter o tempo para este dia.</p>${nav(origem === 'd' ? 'dia' : 'resumo')}</main>`); return; }
+  const est = (rot, val, sub = '') => `<div class="tp-est"><small>${rot}</small><b>${val}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
+  const dirTxt = x.dir != null ? `<span class="tp-dir" style="transform:rotate(${(x.dir + 180) % 360}deg)">↑</span> ${dirV(x.dir)}` : '';
+  const stats = x.tipo === 'prev'
+    ? est('Probabilidade de chuva', x.chuva + '%', x.mm ? x.mm.toString().replace('.', ',') + ' mm previstos' : 'sem chuva prevista') + est('Vento', x.vento + ' km/h', dirTxt + (x.rajada ? ` · rajadas ${x.rajada} km/h` : ''))
+      + est('Índice UV', x.uv != null ? Math.round(x.uv) : '—', x.uv >= 6 ? 'alto' : x.uv >= 3 ? 'moderado' : 'baixo') + est('Horas de sol', x.sol != null ? String(x.sol).replace('.', ',') + ' h' : '—') + est('Nascer do sol', x.nascer) + est('Pôr do sol', x.por)
+    : est('Dias com chuva', x.chuva + '%', 'nesta semana do ano, nos últimos 10 anos') + est('Vento', x.vento + ' km/h', 'máximo médio do dia' + (dirTxt ? ' · ' + dirTxt : '')) + est('Máximas registadas', `${x.maxBaixo}° a ${x.maxAlto}°`, 'neste dia, nos últimos 10 anos')
+      + est('Horas de sol', String(x.sol).replace('.', ',') + ' h', 'média') + est('Nascer do sol', x.nascer) + est('Pôr do sol', x.por);
+  const horas = x.horas?.length ? `<h2 class="sec">Hora a hora</h2><div class="tp-horas">${x.horas.map((h) => `<div class="tp-h"><small>${h.h}</small>${icTempo(h.t)}<b>${h.temp}°</b><span>${h.chuva}%</span><i>${h.vento} km/h</i></div>`).join('')}</div>` : '';
+  const anos = x.anos?.length ? `<h2 class="sec">Este dia nos últimos 10 anos</h2><ol class="tp-anos">${x.anos.map((a) => `<li><b>${a.ano}</b>${icTempo(a.t)}<span class="tp-a-t">${a.max}° / ${a.min}°</span><span>${a.mm >= 1 ? String(a.mm).replace('.', ',') + ' mm' : 'seco'}</span><span>${a.vento} km/h</span></li>`).join('')}</ol>
+    <p class="tp-expl">A previsão hora a hora aparece a partir de ${dataLonga(isoMais(dia.date, -15))}.</p>` : '';
+  render(`<main class="pag com-nav tempo-pag">${cab('Tempo · Dia ' + dia.day_number, dataLonga(dia.date))}${navD}
+    <section class="tp-hero ${x.t}">${icTempo(x.t, 'xl')}<div><div class="tp-h-t"><b>${x.max}°</b><i>${x.min}°</i></div><p>${TEMPO_TXT[x.t]}${x.local ? ' em ' + esc(x.local) : ''}</p>${etiqueta(x)}</div></section>
+    <div class="tp-ests">${stats}</div>${horas}${anos}${nav(origem === 'd' ? 'dia' : 'resumo')}</main>`);
+}
 function vResumo() {
   const b = S.b; const rk = rankPrincipal(); const info = b.trip.info || {};
   const icTr = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8 21l2-4M16 21l-2-4"/></svg>';
@@ -345,10 +565,12 @@ function vResumo() {
     <header class="rs-topo"><a class="b-ic esc rs-voltar" href="#/" aria-label="Todas as viagens">${I.voltar}</a>
       <h1>${esc(b.trip.title)}</h1><p>${intervalo(b.trip.start_date, b.trip.end_date)} · ${b.days.length} dias</p>
       ${(info.cidades || []).length ? `<div class="rs-cid">${info.cidades.map((c) => `<span><b>${esc(c.cidade)}</b> · ${c.noites} noite${c.noites > 1 ? 's' : ''}</span>`).join('')}</div>` : ''}
-      <a class="cab-mapa rs-mapa" href="#/v/${S.tripId}/mapa">${I.mapa}<span>Mapa da viagem</span></a></header>
+      <div class="rs-botoes"><a class="cab-mapa" href="#/v/${S.tripId}/mapa">${I.mapa}<span>Mapa da viagem</span></a><a class="cab-mapa" href="#/v/${S.tripId}/tempo">${icTempo('solnuvem', 'bt')}<span>Tempo</span></a></div></header>
     ${b.offline ? '<p class="aviso">Sem rede: a mostrar a última cópia guardada.</p>' : ''}
     ${info.perfil ? `<p class="perfil">${esc(info.perfil)}</p>` : ''}
     <ol class="rs-linha">${b.days.map(dia).join('')}</ol>
+    <section class="tp-faixa-w" aria-label="Tempo da viagem"><h2 class="sec"><a href="#/v/${S.tripId}/tempo">Tempo da viagem ›</a></h2>
+      <div class="tp-faixa">${b.days.map((d) => `<a class="tp-d" href="#/v/${S.tripId}/tempo/${d.day_number}"><small class="tp-dn">Dia ${d.day_number}</small><span class="tp-v" data-tempo="${d.date}"><span class="tp-sem">…</span></span></a>`).join('')}</div></section>
     ${info.nota_restaurantes ? `<p class="nota">${esc(info.nota_restaurantes)}</p>` : ''}
     ${nav('resumo')}</main>`);
 }
@@ -513,7 +735,9 @@ function vTransportes() {
     ${grupos.map(({ d, its }) => `<section class="tr-bloco"><a class="tr-dia" href="#/v/${S.tripId}/dia/${d.day_number}"><span class="num">${d.day_number}</span><span class="dt"><b>Dia ${d.day_number} · ${dataLonga(d.date)}</b><small>${esc(d.city || '')}</small></span>${I.seg}</a>
       <div class="tr-itens">${its.map(cartao).join('')}</div></section>`).join('') || `<p class="vazio">Ainda não há transportes nesta viagem.</p>`}
     ${b.isOwner && orfas.length ? `<h2 class="sec">Já não estão no roteiro</h2><div class="tr-itens">${orfas.map((f) => `<button class="tr-loc" data-act="ficha-transporte" data-id="${f.id}">${icT('comboio', 'p')}<span class="tr-loc-t">${esc([f.from_place, f.to_place].filter(Boolean).join(' → ') || f.carrier || 'Transporte')}<small>Tem dados teus: decide se apagas</small></span>${estT(f.status)}</button>`).join('')}</div>` : ''}
-    ${tips ? `<details class="caixa dobra tr-dicas"><summary class="cx-h"><h2>${esc(tips.title)}</h2></summary>${tips.content.map((c) => `<p><strong>${esc(c.t)}.</strong> ${esc(c.d)}</p>`).join('')}</details>` : ''}
+    ${tips ? (() => { const gs = []; tips.content.forEach((c) => { const g = c.g || 'Geral'; let x = gs.find((y) => y.g === g); if (!x) gs.push(x = { g, it: [] }); x.it.push(c); });
+      return `<h2 class="sec tr-dicas-t">${esc(tips.title)}</h2><div class="tr-dicas">${gs.map((x) => `<details class="caixa dobra"><summary class="cx-h"><h2>${esc(x.g)}</h2><span class="ok" aria-label="${x.it.length} dicas">${x.it.length}</span></summary>
+        <ul class="dicas-l">${x.it.map((c) => `<li><strong>${esc(c.t)}</strong><span>${esc(c.d)}</span></li>`).join('')}</ul></details>`).join('')}</div>`; })() : ''}
     ${nav('transportes')}</main>`);
 }
 // ficha de um transporte: o que se vê e, para o dono, o que se preenche
@@ -608,7 +832,6 @@ function vMais() {
     <div class="menu">
       ${b.isOwner ? it(`#/v/${S.tripId}/reservas`, 'Reservas antecipadas', `${feitas} de ${b.prebookings.length} feitas`) : ''}
       ${it(`#/v/${S.tripId}/checklist`, 'Checklist antes da partida')}
-      ${b.rankings.map((r) => it(`#/v/${S.tripId}/ranking/${r.id}`, esc(r.title))).join('')}
       ${secs.map((s) => it(`#/v/${S.tripId}/secao/${s.id}`, esc(s.title))).join('')}
       ${it(`#/v/${S.tripId}/participantes`, 'Participantes', `${b.members.length}`)}
       ${b.isOwner ? `<button class="menu-i" data-act="cambio"><span>Moeda e câmbio</span><small>${esc(b.trip.local_currency || 'EUR')}${b.trip.info?.cambio?.ativo ? ' · conversão ligada' : ''}</small>${I.seg}</button>` : ''}
@@ -640,6 +863,17 @@ function vChecklist() {
     ${nav('mais')}</main>`);
 }
 
+const rankingsOrd = () => S.b.rankings.slice().sort((x, y) => (y.is_primary ? 1 : 0) - (x.is_primary ? 1 : 0) || (x.sort_order || 0) - (y.sort_order || 0));
+// capas: uma por ranking, com descrição, n.º de locais e os três primeiros
+function vRankings() {
+  const b = S.b; const ord = rankingsOrd(); if (ord.length === 1) return vRanking(ord[0].id);
+  const capa = (r) => { const its = b.rankingItems.filter((i) => i.ranking_id === r.id).sort((x, y) => x.position - y.position);
+    const p1 = its.map((i) => b.photos.find((p) => p.external_url && b.activities.some((a) => a.id === p.activity_id && (i.activity_ext_keys || []).includes(a.ext_key)))).find(Boolean);
+    return `<a class="rk-capa" href="#/v/${S.tripId}/ranking/${r.id}" style="${p1 ? `background-image:url('${esc(p1.external_url)}')` : ''}"><span class="q">${its.length}</span>
+      <b>${esc(r.title)}</b>${r.description ? `<span class="ds">${esc(r.description)}</span>` : ''}<span class="tops">${its.slice(0, 3).map((i) => `${i.position}. ${esc(i.title)}`).join(' · ')}</span></a>`; };
+  render(`<main class="pag com-nav"><header class="cab-pag"><div><h1>Rankings</h1><p>${esc(b.trip.title)} · ${ord.length} rankings</p></div></header>
+    <div class="rk-capas">${ord.map(capa).join('') || '<p class="vazio">Esta viagem ainda não tem rankings.</p>'}</div>${nav('ranking')}</main>`);
+}
 async function vRanking(rid, destaque) {
   const b = S.b; const r = b.rankings.find((x) => x.id === rid) || b.rankings.find((x) => x.is_primary) || b.rankings[0]; if (!r) return vMais();
   const items = b.rankingItems.filter((i) => i.ranking_id === r.id).sort((x, y) => x.position - y.position);
@@ -655,13 +889,13 @@ async function vRanking(rid, destaque) {
   const sel = destaque ? b.activities.find((x) => x.ext_key === destaque) : null;
   let painel = '';
   if (pc && sel) { const fp = await vAtividade(sel.id, true, `#/v/${S.tripId}/ranking/${r.id}`); painel = `<aside class="detalhe ficha aberto ${fp.semFoto ? 'sem-foto' : ''}" aria-label="Ficha da atividade">${fp.html}</aside>`; }
-  const lista = `<header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>${esc(r.title)}</h1><p>${esc(b.trip.title)} · ${items.length} locais</p></div></header>
-    ${b.rankings.length > 1 ? `<nav class="rk-tabs" aria-label="Rankings">${b.rankings.slice().sort((x, y) => (y.is_primary ? 1 : 0) - (x.is_primary ? 1 : 0) || (x.sort_order || 0) - (y.sort_order || 0)).map((x) => `<a class="rk-tab ${x.id === r.id ? 'on' : ''}" href="#/v/${S.tripId}/ranking/${x.id}">${esc(x.title)}</a>`).join('')}</nav>` : ''}
+  const varios = b.rankings.length > 1;
+  const lista = `<header class="cab-pag">${varios ? `<a class="b-ic" href="#/v/${S.tripId}/ranking" aria-label="Todos os rankings">${I.voltar}</a>` : ''}<div><h1>${esc(r.title)}</h1><p>${r.description ? esc(r.description) + ' · ' : ''}${items.length} locais</p></div></header>
     <ol class="rank rank2">${items.map((i) => { const { a, dias, foto } = info(i); const on = destaque && (i.activity_ext_keys || []).includes(destaque);
       const corpo = `<span class="rk-n">${i.position}</span>${foto ? `<span class="rk-foto" style="background-image:url('${esc(foto.external_url)}')"></span>` : ''}<span class="rk-c"><strong>${esc(i.title)}</strong>${i.note ? `<span>${esc(i.note)}</span>` : ''}</span>`;
       return `<li id="rk-${i.position}" class="${on ? 'on' : ''}">${a ? `<a class="rk-main" href="#/v/${S.tripId}/a/${a.id}/r/${r.id}">${corpo}</a>` : `<div class="rk-main">${corpo}</div>`}
         <div class="rk-dias">${dias.length ? dias.map((d) => `<a class="rk-dia" href="#/v/${S.tripId}/dia/${d.day_number}" aria-label="Ir para o dia ${d.day_number}">Dia ${d.day_number} · ${dataCurta(d.date)}</a>`).join('') : '<span class="rk-fora">Fora do roteiro</span>'}</div></li>`; }).join('')}</ol>`;
-  render(pc && painel ? `<main class="dia rk-duo"><div class="dia-col"><div class="pag">${lista}</div></div>${painel}</main>` : `<main class="pag com-nav">${lista}${nav('mais')}</main>`);
+  render(pc && painel ? `<main class="dia rk-duo"><div class="dia-col"><div class="pag">${lista}</div></div>${painel}</main>` : `<main class="pag com-nav">${lista}${nav('ranking')}</main>`);
   document.querySelector('.rank li.on')?.scrollIntoView({ block: 'center' });
 }
 
@@ -1002,6 +1236,11 @@ document.addEventListener('click', async (e) => {
     if (a === 'reserva') return fReserva(id);
     if (a === 'ficha-transporte') return fichaTransporte(id);
     if (a === 'cambio') return fCambio();
+    if (a === 'ver-fotos-dia') { if (e.target.closest('.foto-add, .credito')) return; const d = S.b.days.find((x) => x.id === id); return verFotos(await fotosDoDiaTodas(d), 0, `Dia ${d.day_number} · ${d.city || ''}`); }
+    if (a === 'ver-fotos-ativ') { if (e.target.closest('.credito')) return; const at = S.b.activities.find((x) => x.id === id);
+      const ord = S.b.photos.filter((p) => p.activity_id === id).sort((x, y) => (x.external_url ? 1 : 0) - (y.external_url ? 1 : 0));
+      return verFotos(await fotosDe(ord), Number(el.dataset.i) || 0, at?.title || ''); }
+    if (a === 'rk-resumo') { try { sessionStorage.setItem('rkResumo:' + S.tripId, id); } catch {} const sc = window.scrollY; vResumo(); window.scrollTo(0, sc); return; }
     if (a === 'mapa-dia') { const g = S.mapa?.grupos?.[el.dataset.n]; if (!g) return; const on = el.getAttribute('aria-pressed') === 'true';
       el.setAttribute('aria-pressed', String(!on)); el.classList.toggle('on', !on); if (on) S.mapa.mapa.removeLayer(g); else g.addTo(S.mapa.mapa); return; }
     if (a === 'escolher-membro') return fMembroDoc(el.dataset.campo, id);
@@ -1045,12 +1284,17 @@ async function router() {
   const m = {
     dia: () => vDia(Number(parts[3]) || 1),
     a: () => { const at = S.b.activities.find((x) => x.id === parts[3]); const d = at && S.b.days.find((x) => x.id === at.day_id);
-      if (at && parts[4] === 'r') return ehPC() ? vRanking(parts[5], at.ext_key) : vAtividade(parts[3], false, `#/v/${id}/ranking/${parts[5]}/${at.ext_key}`);
+      if (at && parts[4] === 'r') return ehPC() ? vRanking(parts[5], at.ext_key) : vAtividade(parts[3], false, parts[6] === 'resumo' ? `#/v/${id}/resumo` : `#/v/${id}/ranking/${parts[5]}/${at.ext_key}`);
       return ehPC() && d ? vDia(d.day_number, at.id) : vAtividade(parts[3]); }, resumo: vResumo, hoteis: vHoteis, transportes: vTransportes, mais: vMais,
-    mapa: () => vMapa(parts[3]), reservas: vReservas, checklist: vChecklist, ranking: () => vRanking(parts[3], parts[4]), secao: () => vSecao(parts[3]), participantes: vParticipantes, exportar: vExportar,
+    mapa: () => vMapa(parts[3]), tempo: () => vTempo(parts[3], parts[4]), reservas: vReservas, checklist: vChecklist, ranking: () => parts[3] ? vRanking(parts[3], parts[4]) : vRankings(), secao: () => vSecao(parts[3]), participantes: vParticipantes, exportar: vExportar,
   };
   return (m[v] || vResumo)();
 }
+// ao abrir a app começa sempre em "As nossas viagens" (um recarregar a meio da utilização mantém o ecrã)
+(function entrada() {
+  let aberta = false; try { aberta = !!sessionStorage.getItem('app-aberta'); sessionStorage.setItem('app-aberta', '1'); } catch {}
+  if (!aberta && /^#\/v\//.test(location.hash)) { try { history.replaceState(null, '', location.pathname + location.search + '#/'); } catch { location.hash = '#/'; } }
+})();
 window.addEventListener('hashchange', router);
 matchMedia('(min-width: 1000px)').addEventListener('change', () => router());
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => router());
