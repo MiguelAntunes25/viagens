@@ -1204,3 +1204,24 @@ body:not(.pc) .foto-ver { top: auto; bottom: 72px; left: 16px; }
 .tp-anos .tp-ic { width: 30px; height: 30px; }
 .tp-hero.nuvem, .tp-hero.nevoeiro, .tp-hero.neve { background: linear-gradient(150deg, #5A7690, #86A0B8 60%, #B4C6D6); }
 .tp-hero.chuva, .tp-hero.trovoada { background: linear-gradient(150deg, #44566A, #6F8397 60%, #9DAEBF); }
+/* tempo: ícone no cartão de cada dia do resumo */
+.rs-card { position: relative; }
+.rs-tempo { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; align-items: center; gap: 3px; padding: 4px 9px 4px 6px; min-height: 30px; border-radius: 999px; background: var(--cinza, #F1EEE8); color: var(--texto); text-decoration: none; font-size: 13px; }
+.rs-tempo:empty { display: none; }
+.rs-tempo .tp-ic { width: 24px; height: 24px; }
+.rs-tempo b { font-weight: 700; padding-left: 2px; }
+.rs-tg { display: inline-flex; align-items: center; gap: 1px; font-size: 11.5px; color: var(--texto2); margin-left: 4px; }
+.rs-tg .tp-gota { width: 12px; height: 12px; }
+.rs-cab { padding-right: 96px; }
+.tp-gota { width: 15px; height: 15px; flex-shrink: 0; }
+.tp-l-sem-ic { width: 40px; flex-shrink: 0; }
+.tp-mini { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--texto2); margin-top: 2px; }
+.tp-mini.prev { color: #2E8BEA; } .tp-mini.tend { color: #C98A1B; }
+.tp-hero.hist { background: linear-gradient(150deg, #3D4F63, #5E7186 60%, #8597AA); }
+.tp-hero.hist .tp-h-t b { font-size: 52px; }
+.tp-anos li { grid-template-columns: 48px 1fr 92px 60px; }
+.tp-a-c { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.tp-a-c.ch { color: #2E8BEA !important; font-weight: 600; }
+.tp-expl b { color: var(--texto); }
+/* PC: o cabeçalho do dia passa a ocupar espaço (já não fica por cima da lista), alinhado com a lista */
+body.pc .cab.cab3 { position: relative; top: auto; left: auto; right: auto; margin: -166px 28px 0; max-width: 864px; z-index: 2; }
