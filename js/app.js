@@ -428,6 +428,10 @@ const TICO = {
   neve: `<g transform="translate(0 -6)">${SVG_NUVEM(false)}</g><g fill="#5DB3F0"><circle cx="21" cy="51" r="2.6"/><circle cx="32" cy="55" r="2.6"/><circle cx="43" cy="51" r="2.6"/></g>`,
   trovoada: `<g transform="translate(0 -6)">${SVG_NUVEM(true)}</g><path d="M33 42l-7 11h6l-3 9 10-13h-6l4-7z" fill="#FFC93C" stroke="#F0A500" stroke-width="1.4" stroke-linejoin="round"/>`,
 };
+const icGota = (mm) => mm >= 1 ? `<svg class="tp-gota ${mm >= 5 ? 'f' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z" fill="#2E8BEA"/></svg>` : '';
+const ETQ = { prev: 'Previsão', tend: 'Tendência', hist: 'Histórico' };
+const chuvaTxt = (x) => x.tipo === 'hist' ? `choveu em ${x.chuvosos} de ${x.nAnos} anos` : `${x.chuva}% chuva`;
+const previsaoEm = (date) => dataLonga(isoMais(date, -15));
 const icTempo = (t, cls = '') => `<svg class="tp-ic ${cls}" viewBox="0 0 64 64" aria-hidden="true">${TICO[t] || TICO.nuvem}</svg>`;
 const ROSA = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 const dirV = (g) => g == null ? '' : ROSA[Math.round(g / 45) % 8];
@@ -443,7 +447,7 @@ async function nomeLocal(L) {
 let _tempoMem = null;
 async function tempoDaViagem() {
   const b = S.b; const hoje = hojeTempo(); const limite = isoMais(hoje, 15);
-  const chave = 'tempo2:' + S.tripId + ':' + hoje + ':' + (b.trip.start_date <= limite ? new Date().getHours() >> 2 : 'n');
+  const chave = 'tempo3:' + S.tripId + ':' + hoje + ':' + (b.trip.start_date <= limite ? new Date().getHours() >> 2 : 'n');
   if (_tempoMem?.chave === chave) return _tempoMem.res;
   try { const c = JSON.parse(localStorage.getItem(chave) || 'null'); if (c) { _tempoMem = { chave, res: c }; return c; } } catch {}
   const locs = {}; let ult = null; b.days.forEach((d) => { const l = localDoDia(d) || ult; ult = l; if (l) (locs[l.lat + ',' + l.lng] = locs[l.lat + ',' + l.lng] || { ...l, dias: [] }).dias.push(d); });
@@ -458,29 +462,24 @@ async function tempoDaViagem() {
       const D = j.daily || {}, H = j.hourly || {};
       prev.forEach((d) => { const k = (D.time || []).indexOf(d.date); if (k < 0) return;
         const horas = []; (H.time || []).forEach((t, h) => { if (t.startsWith(d.date) && Number(t.slice(11, 13)) >= 7) horas.push({ h: t.slice(11, 16), t: WMO(H.weather_code[h]), temp: Math.round(H.temperature_2m[h]), chuva: H.precipitation_probability[h], vento: Math.round(H.wind_speed_10m[h]) }); });
-        res[d.date] = { tipo: 'prev', local: nome, t: WMO(D.weather_code[k]), max: Math.round(D.temperature_2m_max[k]), min: Math.round(D.temperature_2m_min[k]), chuva: D.precipitation_probability_max[k],
+        const ate = Math.round((new Date(d.date) - new Date(hoje)) / 864e5);
+        res[d.date] = { tipo: ate <= 5 ? 'prev' : 'tend', local: nome, t: WMO(D.weather_code[k]), max: Math.round(D.temperature_2m_max[k]), min: Math.round(D.temperature_2m_min[k]), chuva: D.precipitation_probability_max[k],
           mm: D.precipitation_sum[k], vento: Math.round(D.wind_speed_10m_max[k]), rajada: Math.round(D.wind_gusts_10m_max[k]), dir: D.wind_direction_10m_dominant[k], uv: D.uv_index_max[k],
-          nascer: hm(D.sunrise[k]), por: hm(D.sunset[k]), sol: D.sunshine_duration[k] != null ? +(D.sunshine_duration[k] / 3600).toFixed(1) : null, horas }; });
+          nascer: hm(D.sunrise[k]), por: hm(D.sunset[k]), sol: D.sunshine_duration[k] != null ? +(D.sunshine_duration[k] / 3600).toFixed(1) : null, horas: ate <= 5 ? horas : [] }; });
     } catch {} }
     if (norm.length) { try {
       const a1 = Number(hoje.slice(0, 4)) - 1, a0 = a1 - 9;
       const j = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${L.lat}&longitude=${L.lng}&timezone=auto&start_date=${a0}-01-01&end_date=${a1}-12-31`
-        + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_direction_10m_dominant,sunshine_duration,sunrise,sunset').then((r) => r.json());
+        + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,sunrise,sunset').then((r) => r.json());
       const T = j.daily || {}; const idx = {}; (T.time || []).forEach((t, k) => { idx[t] = k; });
-      norm.forEach((d) => { const md = d.date.slice(5); const anos = []; const jan = [];
-        for (let a = a1; a >= a0; a--) {
-          const k = idx[a + '-' + md]; if (k != null && T.temperature_2m_max[k] != null) anos.push({ ano: a, t: WMO(T.weather_code[k]), max: Math.round(T.temperature_2m_max[k]), min: Math.round(T.temperature_2m_min[k]), mm: +(T.precipitation_sum[k] || 0).toFixed(1), vento: Math.round(T.wind_speed_10m_max[k]) });
-          for (let o = -3; o <= 3; o++) { const kk = idx[isoMais(a + '-' + md, o)]; if (kk != null && T.temperature_2m_max[kk] != null) jan.push(kk); }
-        }
-        if (!jan.length) return;
-        const chuvosos = jan.filter((k) => T.precipitation_sum[k] >= 1).length; const pc = Math.round(chuvosos / jan.length * 100);
-        const sol = med(jan.map((k) => (T.sunshine_duration[k] || 0) / 3600)); const kU = idx[a1 + '-' + md];
-        const luz = kU != null ? (new Date(T.sunset[kU]) - new Date(T.sunrise[kU])) / 36e5 : 13;
-        res[d.date] = { tipo: 'norm', local: nome, t: pc >= 50 ? 'chuva' : sol / luz >= 0.5 ? 'sol' : sol / luz >= 0.3 ? 'solnuvem' : 'nuvem',
-          max: Math.round(med(jan.map((k) => T.temperature_2m_max[k]))), min: Math.round(med(jan.map((k) => T.temperature_2m_min[k]))), chuva: pc,
-          mm: +med(jan.map((k) => T.precipitation_sum[k] || 0)).toFixed(1), vento: Math.round(med(jan.map((k) => T.wind_speed_10m_max[k]))),
-          dir: kU != null ? T.wind_direction_10m_dominant[kU] : null, sol: +sol.toFixed(1), nascer: kU != null ? hm(T.sunrise[kU]) : '—', por: kU != null ? hm(T.sunset[kU]) : '—',
-          maxAlto: Math.max(...anos.map((x) => x.max)), maxBaixo: Math.min(...anos.map((x) => x.max)), anos }; });
+      norm.forEach((d) => { const md = d.date.slice(5); const anos = [];
+        for (let a = a1; a >= a0; a--) { const k = idx[a + '-' + md];
+          if (k != null && T.temperature_2m_max[k] != null) anos.push({ ano: a, max: Math.round(T.temperature_2m_max[k]), min: Math.round(T.temperature_2m_min[k]), mm: +(T.precipitation_sum[k] || 0).toFixed(1), vento: Math.round(T.wind_speed_10m_max[k]) }); }
+        if (!anos.length) return; const kU = idx[a1 + '-' + md];
+        res[d.date] = { tipo: 'hist', local: nome, max: Math.round(med(anos.map((x) => x.max))), min: Math.round(med(anos.map((x) => x.min))),
+          chuvosos: anos.filter((x) => x.mm >= 1).length, nAnos: anos.length, vento: Math.round(med(anos.map((x) => x.vento))),
+          maxAlto: Math.max(...anos.map((x) => x.max)), maxBaixo: Math.min(...anos.map((x) => x.max)),
+          nascer: kU != null ? hm(T.sunrise[kU]) : '—', por: kU != null ? hm(T.sunset[kU]) : '—', anos }; });
     } catch {} }
   }));
   _tempoMem = { chave, res };
@@ -493,8 +492,11 @@ async function pintarTempo() {
   let T = {}; try { T = await tempoDaViagem(); } catch { return; }
   document.querySelectorAll('[data-tempo]').forEach((el) => { const x = T[el.dataset.tempo];
     if (!x) { el.innerHTML = el.classList.contains('tp-cartao') ? '<span class="tp-sem">Tempo indisponível</span>' : '<span class="tp-sem">—</span>'; return; }
-    if (el.classList.contains('tp-cartao')) el.innerHTML = `${icTempo(x.t, 'g')}<span class="tp-c-t"><b>${x.max}°</b><i>${x.min}°</i></span>
-      <span class="tp-c-txt"><b>${TEMPO_TXT[x.t]}</b><span>${x.chuva}% chuva · vento ${x.vento} km/h</span><small>${x.tipo === 'prev' ? 'Previsão' : 'Normal para a época'}${x.local ? ' · ' + esc(x.local) : ''}</small></span><span class="tp-c-seta">›</span>`;
+    if (el.classList.contains('tp-cartao')) el.innerHTML = x.tipo === 'hist'
+      ? `<span class="tp-c-t"><b>${x.max}°</b><i>${x.min}°</i></span><span class="tp-c-txt"><b>Histórico deste dia</b><span>Média de ${x.nAnos} anos · ${chuvaTxt(x)}</span><small>Previsão a partir de ${previsaoEm(el.dataset.tempo)}${x.local ? ' · ' + esc(x.local) : ''}</small></span><span class="tp-c-seta">›</span>`
+      : `${icTempo(x.t, 'g')}<span class="tp-c-t"><b>${x.max}°</b><i>${x.min}°</i></span>
+      <span class="tp-c-txt"><b>${TEMPO_TXT[x.t]}</b><span>${x.chuva}% chuva · vento ${x.vento} km/h</span><small>${ETQ[x.tipo]}${x.tipo === 'tend' ? ' (pouco fiável a esta distância)' : ''}${x.local ? ' · ' + esc(x.local) : ''}</small></span><span class="tp-c-seta">›</span>`;
+    else if (el.classList.contains('rs-tempo')) el.innerHTML = x.tipo === 'hist' ? `<b>${x.max}°</b>${x.chuvosos ? `<span class="rs-tg">${icGota(1)}${x.chuvosos}/${x.nAnos}</span>` : ''}` : `${icTempo(x.t)}<b>${x.max}°</b>`;
     else el.innerHTML = `${icTempo(x.t)}<b>${x.max}°</b><span>${x.min}°</span>`; });
 }
 // ecrã do tempo: a viagem toda, ou um dia em pormenor
@@ -505,17 +507,17 @@ async function vTempo(n, origem) {
   render(`<main class="pag com-nav tempo-pag">${cab(dia ? 'Tempo · Dia ' + dia.day_number : 'Tempo da viagem', dia ? dataLonga(dia.date) : esc(b.trip.title))}<p class="vazio">A carregar o tempo…</p>${nav(origem === 'd' ? 'dia' : 'resumo')}</main>`);
   let T = {}; try { T = await tempoDaViagem(); } catch {}
   if (!document.querySelector('.tempo-pag')) return;
-  const etiqueta = (x) => `<span class="tp-etq ${x.tipo}">${x.tipo === 'prev' ? 'Previsão' : 'Normal para a época'}</span>`;
+  const etiqueta = (x) => `<span class="tp-etq ${x.tipo}">${x.tipo === 'hist' ? 'Histórico · não é previsão' : x.tipo === 'tend' ? 'Tendência · pouco fiável a esta distância' : 'Previsão'}</span>`;
   if (!dia) {
     const xs = b.days.map((d) => T[d.date]).filter(Boolean);
     const resumo = xs.length ? `<div class="tp-resumo"><div><small>Temperaturas</small><b>${Math.min(...xs.map((x) => x.min))}° a ${Math.max(...xs.map((x) => x.max))}°</b></div>
-      <div><small>Vento médio</small><b>${Math.round(med(xs.map((x) => x.vento)))} km/h</b></div><div><small>Sol por dia</small><b>${xs.every((x) => x.sol != null) ? med(xs.map((x) => x.sol)).toFixed(1).replace('.', ',') + ' h' : '—'}</b></div></div>` : '';
+      <div><small>Vento médio</small><b>${Math.round(med(xs.map((x) => x.vento)))} km/h</b></div>${xs.some((x) => x.tipo === 'hist') ? `<div><small>Previsão a partir de</small><b>${dataCurta(isoMais(b.days.find((d) => T[d.date]?.tipo === 'hist').date, -15))}</b></div>` : `<div><small>Dias com chuva provável</small><b>${xs.filter((x) => x.chuva >= 50).length} de ${xs.length}</b></div>`}</div>` : '';
     const tipos = new Set(xs.map((x) => x.tipo));
     render(`<main class="pag com-nav tempo-pag">${cab('Tempo da viagem', esc(b.trip.title))}${resumo}
-      <p class="tp-expl">${tipos.has('norm') ? `Para dias a mais de 16 dias de distância, os valores são o que aconteceu nesses dias nos últimos 10 anos. A previsão real aparece 16 dias antes.` : 'Previsão para os dias da viagem.'}</p>
+      <p class="tp-expl">${tipos.has('hist') ? '<b>Histórico</b>: o que aconteceu nesse dia nos últimos 10 anos (não é uma previsão). ' : ''}${tipos.has('tend') ? '<b>Tendência</b>: previsão a 6–16 dias, serve só como ideia geral. ' : ''}${tipos.has('prev') ? '<b>Previsão</b>: próximos 5 dias, a mais fiável.' : ''}</p>
       <ol class="tp-lista">${b.days.map((d) => { const x = T[d.date]; return `<li><a href="#/v/${id}/tempo/${d.day_number}">
         <span class="tp-l-dia"><b>Dia ${d.day_number}</b><small>${esc(dataCurta(d.date))}</small><small class="tp-l-loc">${esc(x?.local || d.city || '')}</small></span>
-        ${x ? `${icTempo(x.t, 'm')}<span class="tp-l-t"><b>${x.max}°</b><i>${x.min}°</i></span><span class="tp-l-x"><span>${TEMPO_TXT[x.t]}</span><small>${x.chuva}% chuva · ${x.vento} km/h</small></span>` : '<span class="tp-sem">Sem dados</span>'}
+        ${x ? `${x.tipo === 'hist' ? '<span class="tp-l-sem-ic"></span>' : icTempo(x.t, 'm')}<span class="tp-l-t"><b>${x.max}°</b><i>${x.min}°</i></span><span class="tp-l-x"><span>${x.tipo === 'hist' ? 'Histórico' : TEMPO_TXT[x.t]}</span><small>${chuvaTxt(x)} · ${x.vento} km/h</small><em class="tp-mini ${x.tipo}">${ETQ[x.tipo]}</em></span>` : '<span class="tp-sem">Sem dados</span>'}
         <span class="tp-c-seta">›</span></a></li>`; }).join('')}</ol>${nav('resumo')}</main>`);
     return;
   }
@@ -524,16 +526,16 @@ async function vTempo(n, origem) {
   if (!x) { render(`<main class="pag com-nav tempo-pag">${cab('Tempo · Dia ' + dia.day_number, dataLonga(dia.date))}${navD}<p class="vazio">Não foi possível obter o tempo para este dia.</p>${nav(origem === 'd' ? 'dia' : 'resumo')}</main>`); return; }
   const est = (rot, val, sub = '') => `<div class="tp-est"><small>${rot}</small><b>${val}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
   const dirTxt = x.dir != null ? `<span class="tp-dir" style="transform:rotate(${(x.dir + 180) % 360}deg)">↑</span> ${dirV(x.dir)}` : '';
-  const stats = x.tipo === 'prev'
-    ? est('Probabilidade de chuva', x.chuva + '%', x.mm ? x.mm.toString().replace('.', ',') + ' mm previstos' : 'sem chuva prevista') + est('Vento', x.vento + ' km/h', dirTxt + (x.rajada ? ` · rajadas ${x.rajada} km/h` : ''))
-      + est('Índice UV', x.uv != null ? Math.round(x.uv) : '—', x.uv >= 6 ? 'alto' : x.uv >= 3 ? 'moderado' : 'baixo') + est('Horas de sol', x.sol != null ? String(x.sol).replace('.', ',') + ' h' : '—') + est('Nascer do sol', x.nascer) + est('Pôr do sol', x.por)
-    : est('Dias com chuva', x.chuva + '%', 'nesta semana do ano, nos últimos 10 anos') + est('Vento', x.vento + ' km/h', 'máximo médio do dia' + (dirTxt ? ' · ' + dirTxt : '')) + est('Máximas registadas', `${x.maxBaixo}° a ${x.maxAlto}°`, 'neste dia, nos últimos 10 anos')
-      + est('Horas de sol', String(x.sol).replace('.', ',') + ' h', 'média') + est('Nascer do sol', x.nascer) + est('Pôr do sol', x.por);
+  const stats = x.tipo !== 'hist'
+    ? est('Probabilidade de chuva', x.chuva + '%', x.mm ? x.mm.toString().replace('.', ',') + ' mm previstos' : 'sem chuva prevista') + est('Vento', x.vento + ' km/h', dirTxt + (x.rajada && x.tipo === 'prev' ? ` · rajadas ${x.rajada} km/h` : ''))
+      + (x.tipo === 'tend' ? '' : est('Índice UV', x.uv != null ? Math.round(x.uv) : '—', x.uv >= 6 ? 'alto' : x.uv >= 3 ? 'moderado' : 'baixo')) + (x.tipo === 'tend' ? '' : est('Horas de sol', x.sol != null ? String(x.sol).replace('.', ',') + ' h' : '—')) + est('Nascer do sol', x.nascer) + est('Pôr do sol', x.por)
+    : est('Chuva neste dia', `${x.chuvosos} de ${x.nAnos} anos`, 'com pelo menos 1 mm') + est('Vento', x.vento + ' km/h', 'máximo do dia, média dos anos') + est('Máximas registadas', `${x.maxBaixo}° a ${x.maxAlto}°`, 'a mais baixa e a mais alta')
+      + est('Previsão disponível', dataCurta(isoMais(dia.date, -15)), 'tendência; a previsão fiável chega 5 dias antes') + est('Nascer do sol', x.nascer) + est('Pôr do sol', x.por);
   const horas = x.horas?.length ? `<h2 class="sec">Hora a hora</h2><div class="tp-horas">${x.horas.map((h) => `<div class="tp-h"><small>${h.h}</small>${icTempo(h.t)}<b>${h.temp}°</b><span>${h.chuva}%</span><i>${h.vento} km/h</i></div>`).join('')}</div>` : '';
-  const anos = x.anos?.length ? `<h2 class="sec">Este dia nos últimos 10 anos</h2><ol class="tp-anos">${x.anos.map((a) => `<li><b>${a.ano}</b>${icTempo(a.t)}<span class="tp-a-t">${a.max}° / ${a.min}°</span><span>${a.mm >= 1 ? String(a.mm).replace('.', ',') + ' mm' : 'seco'}</span><span>${a.vento} km/h</span></li>`).join('')}</ol>
-    <p class="tp-expl">A previsão hora a hora aparece a partir de ${dataLonga(isoMais(dia.date, -15))}.</p>` : '';
+  const anos = x.anos?.length ? `<h2 class="sec">Este dia nos últimos 10 anos</h2><ol class="tp-anos">${x.anos.map((a) => `<li><b>${a.ano}</b><span class="tp-a-t">${a.max}° / ${a.min}°</span><span class="tp-a-c ${a.mm >= 1 ? 'ch' : ''}">${icGota(a.mm)}${a.mm >= 1 ? String(a.mm).replace('.', ',') + ' mm' : 'sem chuva'}</span><span>${a.vento} km/h</span></li>`).join('')}</ol>
+    <p class="tp-expl">Valores medidos (reanálise ERA5) para este local. A previsão hora a hora aparece 5 dias antes.</p>` : '';
   render(`<main class="pag com-nav tempo-pag">${cab('Tempo · Dia ' + dia.day_number, dataLonga(dia.date))}${navD}
-    <section class="tp-hero ${x.t}">${icTempo(x.t, 'xl')}<div><div class="tp-h-t"><b>${x.max}°</b><i>${x.min}°</i></div><p>${TEMPO_TXT[x.t]}${x.local ? ' em ' + esc(x.local) : ''}</p>${etiqueta(x)}</div></section>
+    <section class="tp-hero ${x.tipo === 'hist' ? 'hist' : x.t}">${x.tipo === 'hist' ? '' : icTempo(x.t, 'xl')}<div><div class="tp-h-t"><b>${x.max}°</b><i>${x.min}°</i></div><p>${x.tipo === 'hist' ? `Média deste dia nos últimos ${x.nAnos} anos` : TEMPO_TXT[x.t]}${x.local ? ' · ' + esc(x.local) : ''}</p>${etiqueta(x)}</div></section>
     <div class="tp-ests">${stats}</div>${horas}${anos}${nav(origem === 'd' ? 'dia' : 'resumo')}</main>`);
 }
 function vResumo() {
@@ -556,7 +558,7 @@ function vResumo() {
       : `<a class="lin ht falta" href="#/v/${S.tripId}/hoteis"><span class="ic">${I.cama}</span>Sem hotel reservado</a>`;
     const href = `#/v/${S.tripId}/dia/${d.day_number}`;
     return `<li><a class="rs-num" href="${href}" aria-label="Abrir o dia ${d.day_number}"><small>DIA</small><b>${d.day_number}</b></a>
-      <article class="rs-card"><a class="rs-cab" href="${href}"><span class="rs-data">${dataCurta(d.date)}</span><h2>${esc(d.city || '')}</h2><span class="rs-tit">${esc(d.title || '')}</span></a>
+      <article class="rs-card"><a class="rs-tempo" data-tempo="${d.date}" href="#/v/${S.tripId}/tempo/${d.day_number}" aria-label="Tempo do dia ${d.day_number}"></a><a class="rs-cab" href="${href}"><span class="rs-data">${dataCurta(d.date)}</span><h2>${esc(d.city || '')}</h2><span class="rs-tit">${esc(d.title || '')}</span></a>
       ${locais.length ? `<div class="rs-locs">${locais.map((x) => `<a class="rs-loc" href="#/v/${S.tripId}/a/${x.a.id}"><span class="rs-f" style="background-image:url('${esc(x.p.external_url || '')}'), linear-gradient(160deg, #8FA9BC, #C9A98C 55%, #7E5A44)"></span><span>${esc(x.a.title)}</span></a>`).join('')}</div>`
         : (d.highlights || []).length ? `<p class="rs-dest">${(d.highlights || []).map(esc).join(' · ')}</p>` : ''}
       <div class="rs-rod">${tr ? `<div class="lin tr"><span class="ic">${icTr}</span>${esc(tr)}</div>` : ''}${hotel}</div></article></li>`;
@@ -569,8 +571,6 @@ function vResumo() {
     ${b.offline ? '<p class="aviso">Sem rede: a mostrar a última cópia guardada.</p>' : ''}
     ${info.perfil ? `<p class="perfil">${esc(info.perfil)}</p>` : ''}
     <ol class="rs-linha">${b.days.map(dia).join('')}</ol>
-    <section class="tp-faixa-w" aria-label="Tempo da viagem"><h2 class="sec"><a href="#/v/${S.tripId}/tempo">Tempo da viagem ›</a></h2>
-      <div class="tp-faixa">${b.days.map((d) => `<a class="tp-d" href="#/v/${S.tripId}/tempo/${d.day_number}"><small class="tp-dn">Dia ${d.day_number}</small><span class="tp-v" data-tempo="${d.date}"><span class="tp-sem">…</span></span></a>`).join('')}</div></section>
     ${info.nota_restaurantes ? `<p class="nota">${esc(info.nota_restaurantes)}</p>` : ''}
     ${nav('resumo')}</main>`);
 }
