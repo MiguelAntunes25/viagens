@@ -1034,16 +1034,16 @@ async function vLocal(tab, id) {
       ${tel ? `<a class="tx-tel" href="tel:${esc(tel)}">☎ ${esc(tel)}</a>` : ''}
       ${FRASE_TAXI[L] ? `<p class="tx-frase">${FRASE_TAXI[L]}</p>` : ''}</div>
       ${verificacaoLocal(tab, x)}
-      <div class="tx-lat"><b>${esc(nomeLat || '')}</b>${moradaLat ? `<span>${esc(moradaLat)}</span>` : ''}${x.local_ok ? '<em class="tx-ok">✓ Confirmado por ti</em>' : ''}<small>Mostra este ecrã ao taxista${tel ? ' · no Japão, o telefone serve para o GPS do táxi' : ''}</small></div>
+      <div class="tx-lat"><b>${esc(nomeLat || '')}</b>${moradaLat ? `<span>${esc(moradaLat)}</span>` : ''}<small>Mostra este ecrã ao taxista${tel ? ' · no Japão, o telefone serve para o GPS do táxi' : ''}</small></div>
       <div class="tx-ac">${x.local_audio_path ? `<button class="b-sec" data-ouvir>🔊 Ouvir</button><audio data-som preload="none"></audio>` : ''}
         ${S.b.isOwner ? `<button class="b-sec" data-corrigir>Corrigir</button><button class="b-sec" data-buscar>Atualizar do Google</button>` : ''}</div>`
     : `<div class="tx-vazio"><h2>${esc(nomeLat || '')}</h2><p>Ainda não há o nome e a morada em ${esc((LINGUAS.find(([k]) => k === L) || [, 'língua local'])[1].toLowerCase())}.</p>
       ${S.b.isOwner ? '<button class="b-pri b-larga" data-buscar>Ir buscar ao Google Maps</button><button class="b-sec b-larga" data-corrigir>Escrever à mão</button>' : '<p class="meta">Pede ao organizador da viagem para os preencher.</p>'}</div>`}</div>`;
-  document.body.appendChild(w);
+  document.body.appendChild(w); if (x.local_name) medirDistancia(w, tab, x);
   w.addEventListener('click', async (e) => {
     if (e.target.closest('[data-fechar]') || e.target === w) return w.remove();
     if (e.target.closest('[data-ouvir]')) { const au = w.querySelector('[data-som]'); if (!au.src) { const u = (await urlsAssinados('audio', [x.local_audio_path]))[x.local_audio_path]; if (!u) return toast('Áudio indisponível sem rede.'); au.src = u; } au.currentTime = 0; au.play(); return; }
-    if (e.target.closest('[data-confirmar]')) { const r = await sb.from(tab).update({ local_ok: true }).eq('id', id); if (r.error) return toast('Não foi possível guardar.'); x.local_ok = true; toast('Confirmado.'); return vLocal(tab, id); }
+    if (e.target.closest('[data-confirmar]')) { const r = await sb.from(tab).update({ local_ok: true }).eq('id', id); if (r.error) return toast('Não foi possível guardar.'); x.local_ok = true; document.querySelectorAll(`[data-act=local][data-id="${id}"]`).forEach((b) => b.classList.remove('por-ver')); toast('Confirmado.'); return vLocal(tab, id); }
     if (e.target.closest('[data-buscar]')) { const bt = e.target.closest('[data-buscar]'); bt.disabled = true; bt.textContent = 'A procurar…';
       try { await buscarLocal(tab, id); vLocal(tab, id); } catch (err) { toast(err.message); bt.disabled = false; bt.textContent = 'Tentar outra vez'; } return; }
     if (e.target.closest('[data-corrigir]')) { w.remove(); folha('Na língua local', campo('local_name', 'Nome', x.local_name) + area('local_address', 'Morada', x.local_address) + campo('local_phone', 'Telefone', tel, 'tel'),
@@ -1054,18 +1054,66 @@ async function vLocal(tab, id) {
 // confirmar que o local encontrado pelo Google é mesmo o que queremos
 const distKm = (a1, o1, a2, o2) => { const r = Math.PI / 180, d1 = (a2 - a1) * r, d2 = (o2 - o1) * r; const h = Math.sin(d1 / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(d2 / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
 const digitos = (t) => String(t || '').replace(/\D/g, '').slice(-8);
-function verificacaoLocal(tab, x) {
-  if (x.local_ok || !x.local_place_id || !S.b.isOwner) return '';
-  const sinais = [];
-  if (x.lat != null && x.local_lat != null) { const km = distKm(x.lat, x.lng, x.local_lat, x.local_lng);
-    sinais.push(km <= 0.3 ? `<li class="bom">Fica a ${Math.round(km * 1000)} m do local que tens registado</li>` : `<li class="mau">⚠ Fica a ${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} km do local que tens registado</li>`); }
+// 4 provas, sempre visíveis: nome, morada, distância e telefone (verde bate certo, vermelho não bate, cinzento não dá para comparar)
+const normTxt = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const GENERICAS = new Set(['hotel', 'hostel', 'the', 'and', 'des', 'del', 'della', 'station', 'estacao', 'aeroporto', 'airport', 'templo', 'temple', 'museu', 'museum', 'city', 'centro', 'centre', 'center', 'rua', 'street']);
+const palavras = (t) => normTxt(t).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !/^\d+$/.test(w) && !GENERICAS.has(w));
+const numeros = (t) => normTxt(t).match(/\d+/g) || [];
+const fmtDist = (km) => km < 1 ? `${Math.round(km * 1000)} m` : `${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} km`;
+function provaDist(km, fonte) {
+  return km <= 0.3 ? ['bom', `Distância: fica a ${fmtDist(km)} ${fonte}`] : km <= 1 ? ['mau', `Distância: fica a ${fmtDist(km)} ${fonte}. Pode ser outra entrada do mesmo sítio, confirma no mapa`] : ['mau', `Distância: fica a ${fmtDist(km)} ${fonte}. Provavelmente é outro sítio`];
+}
+function provasLocal(tab, x) {
+  const P = [];
+  // 1. nome
+  const meu = tab === 'hotels' ? x.name : x.transport_mode ? x.from_place : (x.place_name || x.title); const dele = x.local_nome_lat || '';
+  const wm = palavras(meu), wd = new Set(palavras(dele));
+  P.push(!dele ? ['neutro', 'Nome: o Google não devolveu o nome em letras nossas'] : wm.some((w) => wd.has(w) || [...wd].some((d) => d.startsWith(w) || w.startsWith(d))) || normTxt(dele).replace(/[^a-z0-9]/g, '').includes(normTxt(meu).replace(/[^a-z0-9]/g, '')) ? ['bom', `Nome: coincide com o teu (${esc(meu)})`] : ['mau', `Nome: tens “${esc(meu)}”, o Google diz “${esc(dele)}”`]);
+  // 2. morada
+  const minha = tab === 'hotels' ? [x.address, x.city].filter(Boolean).join(', ') : ''; const gm = x.local_morada_lat || '';
+  if (!minha) P.push(['neutro', tab === 'hotels' ? 'Morada: não tens morada registada no hotel para comparar' : 'Morada: não tens morada registada para comparar; confere a do Google acima']);
+  else if (!gm) P.push(['neutro', 'Morada: o Google não devolveu a morada em letras nossas']);
+  else { const nm = numeros(x.address), ng = new Set(numeros(gm)); const okN = nm.every((n) => ng.has(n)); const pg = new Set(palavras(gm)); const okP = palavras(x.address).some((w) => pg.has(w) || [...pg].some((g) => g.includes(w) || w.includes(g)));
+    P.push(okN && (okP || !palavras(x.address).length) ? ['bom', `Morada: coincide com a tua (${esc(minha)})`] : ['mau', `Morada: a tua é “${esc(minha)}”; confere se é a mesma`]); }
+  // 3. distância (se o local não tiver coordenadas, mede-se depois pela morada, ver medirDistancia)
+  if (x.local_lat == null) P.push(['neutro', 'Distância: o Google não devolveu a localização']);
+  else if (x.lat != null) P.push(provaDist(distKm(x.lat, x.lng, x.local_lat, x.local_lng), 'do local que tens registado'));
+  else P.push(['neutro a-medir', 'Distância: a medir…']);
+  // 4. telefone
   const telMeu = tab === 'hotels' ? x.phone : null;
-  if (telMeu && x.local_phone) sinais.push(digitos(telMeu) === digitos(x.local_phone) ? '<li class="bom">O telefone é o mesmo da tua reserva</li>' : '<li class="mau">⚠ O telefone é diferente do da tua reserva</li>');
+  if (!x.local_phone) P.push(['neutro', 'Telefone: o Google não tem telefone deste local']);
+  else if (!telMeu) P.push(['neutro', tab === 'hotels' ? `Telefone: não tens o telefone do hotel na reserva para comparar. O do Google é ${esc(x.local_phone)}; confere no email da reserva ou no site do hotel` : `Telefone: não tens telefone registado para comparar (o do Google é ${esc(x.local_phone)})`]);
+  else P.push(digitos(telMeu).slice(-8) === digitos(x.local_phone).slice(-8) ? ['bom', `Telefone: é o mesmo da tua reserva (${esc(telMeu)})`] : ['mau', `Telefone: o da tua reserva é ${esc(telMeu)}, o do Google é ${esc(x.local_phone)}`]);
+  return P;
+}
+const ICP = { bom: '✓', mau: '⚠', neutro: '–' };
+function verificacaoLocal(tab, x) {
+  if (!x.local_place_id) return '';
+  const P = provasLocal(tab, x); const bons = P.filter(([c]) => c === 'bom').length, maus = P.filter(([c]) => c === 'mau').length;
   const gm = `https://www.google.com/maps/search/?api=1&query=${x.local_lat},${x.local_lng}&query_place_id=${encodeURIComponent(x.local_place_id)}`;
-  return `<div class="tx-ver"><p class="tx-ver-t">Confirma que é o sítio certo</p>
+  const lista = `<ul class="tx-provas">${P.map(([c, t], i) => `<li class="${c}" data-prova="${i}"><i>${ICP[c.split(' ')[0]]}</i><span>${t}</span></li>`).join('')}</ul>`;
+  // depois de confirmado (ou para quem só consulta): fica o local em letras nossas, o mapa e as provas recolhidas
+  if (x.local_ok || !S.b.isOwner) return `<div class="tx-conf"><p class="tx-conf-t">${x.local_ok ? '<span class="tx-ok">✓ Confirmado por ti</span>' : 'Local encontrado pelo Google'}</p>
+    <p><b>${esc(x.local_nome_lat || '—')}</b>${x.local_morada_lat ? `<br><span>${esc(x.local_morada_lat)}</span>` : ''}</p>
+    <a class="b-sec tx-mapa" href="${gm}" target="_blank" rel="noopener">Ver no Google Maps</a>
+    <details class="tx-det"><summary data-res>${resumoProvas(bons, maus)}</summary>${lista}</details></div>`;
+  return `<div class="tx-ver ${maus ? 'tem-mau' : ''}"><p class="tx-ver-t">Confirma que é o sítio certo</p>
     <p>O Google encontrou: <b>${esc(x.local_nome_lat || '—')}</b>${x.local_morada_lat ? `<br><span>${esc(x.local_morada_lat)}</span>` : ''}</p>
-    ${sinais.length ? `<ul>${sinais.join('')}</ul>` : ''}
+    <p class="tx-ver-res" data-res>${resumoProvas(bons, maus)}</p>
+    ${lista}
     <div class="tx-ver-ac"><a class="b-sec" href="${gm}" target="_blank" rel="noopener">Ver no Google Maps</a><button class="b-pri" data-confirmar>✓ Está certo</button><button class="b-sec" data-corrigir>Não é este</button></div></div>`;
+}
+const resumoProvas = (bons, maus) => `${bons} de 4 provas batem certo${maus ? ` · <b>${maus} não ${maus === 1 ? 'bate' : 'batem'}</b>` : ''}`;
+// sem coordenadas no hotel ou atração: localiza a tua morada no OpenStreetMap (fonte independente do Google) e mede a distância
+async function medirDistancia(w, tab, x) {
+  const li = w.querySelector('.tx-provas .a-medir'); if (!li) return;
+  const q = tab === 'hotels' ? [x.name && x.address ? x.address : x.name, x.city].filter(Boolean).join(', ') : consultaLocal(tab, x);
+  let g = q ? await geocodificar(q) : null; if (!g && tab === 'hotels' && x.address) g = await geocodificar(x.address); if (!g && tab === 'hotels') g = await geocodificar([x.name, x.city].filter(Boolean).join(', '));
+  const [c, t] = g ? provaDist(distKm(g.lat, g.lng, x.local_lat, x.local_lng), 'da morada que registaste (medido pelo OpenStreetMap)') : ['neutro', 'Distância: não consegui localizar a tua morada para medir'];
+  li.className = c; li.innerHTML = `<i>${ICP[c]}</i><span>${t}</span>`;
+  const todos = [...w.querySelectorAll('.tx-provas li')]; const r = w.querySelector('[data-res]');
+  if (r) r.innerHTML = resumoProvas(todos.filter((e) => e.className === 'bom').length, todos.filter((e) => e.className === 'mau').length);
+  if (c === 'mau') w.querySelector('.tx-ver')?.classList.add('tem-mau');
 }
 // texto de pesquisa (igual ao da função no servidor): quando muda, o nome local é atualizado
 function consultaLocal(tab, x) {
