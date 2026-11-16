@@ -1449,3 +1449,21 @@ body.pc .rs-cabv { padding: 22px 26px; } body.pc .rs-cabv h1 { font-size: 32px; 
 .cv-w .cartao-viagem.passada + .cv-est { border-color: var(--linha, #d5dde4); background: var(--fundo, #fff); color: var(--texto2, #4F6273); }
 .cv-w .cartao-viagem { padding-right: 96px; }
 .def-nota { margin: 14px 4px 0; }
+
+/* 4 provas do local */
+.tx-ver-res { font-weight: 700; font-size: 13.5px; }
+.tx-ver ul.tx-provas { list-style: none; padding: 0; margin: 8px 0 10px; display: flex; flex-direction: column; gap: 6px; }
+.tx-provas li { display: flex; gap: 9px; align-items: flex-start; padding: 8px 10px; border-radius: 11px; background: rgba(255,255,255,.7); font-size: 13.5px; line-height: 1.4; font-weight: 500; }
+.tx-provas li i { flex: 0 0 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 12.5px; color: #fff; }
+.tx-provas li.bom { color: #1F5E43; } .tx-provas li.bom i { background: #2E9B6A; }
+.tx-provas li.mau { color: #8E2A1C; font-weight: 600; background: #FDECE8; } .tx-provas li.mau i { background: #C8452F; }
+.tx-provas li.neutro { color: #5A6470; } .tx-provas li.neutro i { background: #A7B0BA; }
+.tx-ver.tem-mau { border-color: #E59A8A; }
+
+/* local já confirmado: fica à vista o nome e a morada em letras nossas, o mapa e as provas */
+.tx-conf { margin-top: 22px; padding: 14px 16px; border-radius: 16px; background: #EEF6F1; border: 1.5px solid #A9D5BD; color: #1E3A2C; text-align: left; font-size: 14px; line-height: 1.45; }
+.tx-conf p { margin: 0 0 8px; } .tx-conf span { color: #46604F; font-size: 13px; } .tx-conf-t { font-weight: 800; font-size: 15px; }
+.tx-conf .tx-ok { color: #1F7A50; font-size: 15px; }
+.tx-conf .tx-mapa { display: flex; justify-content: center; width: 100%; margin: 4px 0 8px; }
+.tx-det summary { cursor: pointer; font-size: 13px; font-weight: 700; color: #46604F; padding: 4px 0; }
+.tx-det .tx-provas { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
