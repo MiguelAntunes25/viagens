@@ -242,7 +242,7 @@ function fotoDoDia(day) {
   return comFoto[0]?.p || null;
 }
 
-async function recarregar() { S.b = await carregarViagem(S.tripId); router(); }
+async function recarregar() { S.b = await carregarViagem(S.tripId); router(); setTimeout(autoLocais, 800); }
 if (window.__ARRANQUE) window.__recarregar = recarregar; // só na pré-visualização
 async function op(p, ok) { const { error } = await p; if (error) throw error; if (ok) toast(ok); await recarregar(); }
 
@@ -374,13 +374,14 @@ async function vAtividade(id, comoPainel = false, voltar = null) {
           ${pos ? `<a class="rk-chip" href="#/v/${S.tripId}/ranking/${rk.r.id}/${a.ext_key}" aria-label="${pos}.º lugar em ${rk.total} no ranking">${I.estrela}${pos} em ${rk.total}</a>` : ''}</div>
         <h1>${esc(a.title)}</h1>
         <div class="chips">${a.start_time ? `<span class="chip ouro">${hhmm(a.start_time)}</span>` : ''}${a.duration_min ? `<span class="chip">${dur(a.duration_min)}</span>` : ''}${a.place_name ? `<span class="chip">${esc(a.place_name)}</span>` : ''}</div>
-        ${temLocal ? `<a class="b-maps" href="${esc(mapsPlaceLink(a))}" target="_blank" rel="noopener">${I.maps}Abrir no Google Maps</a>` : ''}
+        ${temLocal ? `<div class="maps-l"><a class="b-maps" href="${esc(mapsPlaceLink(a))}" target="_blank" rel="noopener">${I.maps}Abrir no Google Maps</a>${linguaViagem() ? `<button class="b-local ${a.local_name && !a.local_ok ? 'por-ver' : ''}" data-act="local" data-tab="activities" data-id="${a.id}" aria-label="Nome e morada na língua local" title="Na língua local">文A</button>` : ''}</div>` : ''}
         ${outros.length ? `<div class="outros-rk">${outros.map((o) => `<a href="#/v/${S.tripId}/ranking/${o.r.id}/${a.ext_key}">${o.i.position} em ${o.tot} · ${esc(o.r.title)}</a>`).join('')}</div>` : ''}
       </div>
       ${a.transport_mode && fichaT(a) ? (() => { const f = fichaT(a); return `<div class="caixa tr-cx"><div class="cx-h"><h2>${MODOS[a.transport_mode]}</h2>${estT(f.status)}</div>
         <p class="rota"><strong>${esc(a.from_place || '')}</strong> ${hhmm(a.start_time)} → <strong>${esc(a.to_place || '')}</strong> ${hhmm(a.arrive_time)}</p>
         <p class="meta">${esc([f.carrier, f.number && (a.transport_mode === 'aviao' ? 'Voo ' : '') + f.number, f.terminal].filter(Boolean).join(' · '))}</p>
-        <button class="b-sec" data-act="ficha-transporte" data-id="${f.id}">${b.isOwner ? 'Reserva, valores e bilhetes' : 'Ver bilhetes'}</button></div>`; })() : ''}
+        <button class="b-sec" data-act="ficha-transporte" data-id="${f.id}">${b.isOwner ? 'Reserva, valores e bilhetes' : 'Ver bilhetes'}</button>
+        ${linguaViagem() && a.from_place && elegivelLocal('activities', a) ? `<button class="b-sec tr-local ${a.local_name && !a.local_ok ? 'por-ver' : ''}" data-act="local" data-tab="activities" data-id="${a.id}"><b>文A</b> ${esc(a.from_place)} na língua local</button>` : ''}</div>`; })() : ''}
       ${!a.transport_mode && (fichaT(a) || (b.isOwner && (a.needs_ticket || a.kind === 'visit'))) ? (() => { const f = fichaT(a);
         const val = f?.total_price != null ? dinheiroD(f.total_price, f.currency) : '';
         if (!b.isOwner && !f) return '';
@@ -652,7 +653,7 @@ function vHoteis() {
         ${linha('Noites', noites(h.check_in, h.check_out))}${linha('Regime', esc(regimeTxt(h.board)))}${linha('Quartos', h.rooms || 1)}
         ${linha('Agência', esc(h.agency || ''))}${linha('Reserva', esc(h.booking_code || ''))}${linha('Telefone', h.phone ? `<a href="tel:${esc(h.phone)}">${esc(h.phone)}</a>` : '')}
         ${b.isOwner ? linha('Valor total', dinheiroD(h.total_price, h.currency)) + linha('Sinal', h.deposit != null ? dinheiroD(h.deposit, h.currency) : '') + linha('Falta pagar', faltaPagar(h) != null ? (h.status === 'pago' ? 'Nada · pago' : dinheiroD(faltaPagar(h), h.currency)) : '') + linha('Por noite e quarto', pq != null ? dinheiroD(pq, h.currency) : '') + linha(h.status === 'pago' ? 'Pago a' : 'Pagamento', h.payment_date ? dataCurta(h.payment_date) : '') : ''}</dl>
-      ${h.address ? `<a class="b-maps peq" href="${esc(mapsPlaceLink({ maps_url: h.maps_url, maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
+      ${h.address || linguaViagem() ? `<div class="maps-l">${h.address ? `<a class="b-maps peq" href="${esc(mapsPlaceLink({ maps_url: h.maps_url, maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : '<span></span>'}${linguaViagem() ? `<button class="b-local ${h.local_name && !h.local_ok ? 'por-ver' : ''}" data-act="local" data-tab="hotels" data-id="${h.id}" aria-label="Nome e morada na língua local" title="Na língua local">文A</button>` : ''}</div>` : ''}
       ${h.notes ? `<p class="hx-notas">${esc(h.notes)}</p>` : ''}
       ${documentos(tk, 'hotel_id', h.id)}
       ${b.isOwner ? `<div class="hx-acoes">${h.status !== 'pago' ? `<button class="b-pri b-peq" data-act="hotel-pago" data-id="${h.id}">✓ Pagamento efetuado</button><button class="b-sec b-peq" data-act="hotel-cancelar" data-id="${h.id}">Cancelar reserva</button>` : ''}<button class="b-link" data-act="hotel" data-id="${h.id}">Editar</button></div>` : ''}
@@ -1010,6 +1011,90 @@ function fFicha(id) {
   const bt = document.querySelector('.folha [data-apagar]'); if (bt) bt.addEventListener('click', async () => { if (!confirm('Apagar esta ficha?')) return; await sb.from('fichas_pessoais').delete().eq('id', id); document.querySelector('.folha-fundo')?.remove(); toast('Ficha apagada.'); location.hash = `#/v/${S.tripId}/participantes`; });
 }
 
+// ---------- nome e morada na língua local (para mostrar ao taxista) ----------
+const LINGUAS = [['', 'Nenhuma (não mostrar)'], ['ja', 'Japonês'], ['th', 'Tailandês'], ['zh', 'Chinês'], ['ko', 'Coreano'], ['vi', 'Vietnamita'], ['hi', 'Hindi'], ['ar', 'Árabe'], ['ru', 'Russo'], ['el', 'Grego'], ['tr', 'Turco'], ['nl', 'Neerlandês'], ['fr', 'Francês'], ['de', 'Alemão'], ['it', 'Italiano'], ['es', 'Espanhol'], ['cs', 'Checo'], ['pl', 'Polaco'], ['hu', 'Húngaro'], ['id', 'Indonésio']];
+const FRASE_TAXI = { ja: 'この住所までお願いします。', th: 'กรุณาพาไปที่อยู่นี้', zh: '请带我去这个地址。', ko: '이 주소로 가 주세요.', vi: 'Làm ơn đưa tôi đến địa chỉ này.', hi: 'कृपया मुझे इस पते पर ले चलिए।', ar: 'من فضلك خذني إلى هذا العنوان.', ru: 'Пожалуйста, отвезите меня по этому адресу.', el: 'Παρακαλώ, πηγαίνετέ με σε αυτή τη διεύθυνση.', tr: 'Lütfen beni bu adrese götürün.', nl: 'Wilt u mij naar dit adres brengen, alstublieft?', fr: "Pouvez-vous m'emmener à cette adresse, s'il vous plaît ?", de: 'Bitte bringen Sie mich zu dieser Adresse.', it: 'Mi porti a questo indirizzo, per favore.', es: 'Lléveme a esta dirección, por favor.', cs: 'Prosím, odvezte mě na tuto adresu.', pl: 'Proszę mnie zawieźć pod ten adres.', hu: 'Kérem, vigyen el erre a címre.', id: 'Tolong antar saya ke alamat ini.' };
+const linguaViagem = () => S.b?.trip?.info?.lingua || '';
+const localDe = (tab, id) => (tab === 'hotels' ? S.b.hotels : S.b.activities).find((x) => x.id === id);
+async function buscarLocal(tab, id, acao = 'local') {
+  const { data, error } = await sb.functions.invoke('narrar', { body: { acao, tabela: tab, id, lingua: linguaViagem() } });
+  if (error || data?.erro) throw new Error(data?.erro || 'Não foi possível contactar o Google.');
+  Object.assign(localDe(tab, id), data); return data;
+}
+async function vLocal(tab, id) {
+  const x = localDe(tab, id); if (!x) return; const L = linguaViagem() || x.local_lang;
+  const nomeLat = tab === 'hotels' ? x.name : (x.place_name || x.title); const moradaLat = tab === 'hotels' ? [x.address, x.city].filter(Boolean).join(', ') : '';
+  const tel = x.local_phone || (tab === 'hotels' ? x.phone : '');
+  document.querySelector('.tx-fundo')?.remove();
+  const w = document.createElement('div'); w.className = 'tx-fundo';
+  w.innerHTML = `<div class="tx" role="dialog" aria-modal="true" aria-label="Na língua local"><button class="b-ic tx-x" data-fechar aria-label="Fechar">✕</button>
+    ${x.local_name ? `<div class="tx-corpo" lang="${esc(L)}" dir="${L === 'ar' ? 'rtl' : 'auto'}">
+      <h1 class="tx-nome">${esc(x.local_name)}</h1>${x.local_address ? `<p class="tx-morada">${esc(x.local_address)}</p>` : ''}
+      ${tel ? `<a class="tx-tel" href="tel:${esc(tel)}">☎ ${esc(tel)}</a>` : ''}
+      ${FRASE_TAXI[L] ? `<p class="tx-frase">${FRASE_TAXI[L]}</p>` : ''}</div>
+      ${verificacaoLocal(tab, x)}
+      <div class="tx-lat"><b>${esc(nomeLat || '')}</b>${moradaLat ? `<span>${esc(moradaLat)}</span>` : ''}${x.local_ok ? '<em class="tx-ok">✓ Confirmado por ti</em>' : ''}<small>Mostra este ecrã ao taxista${tel ? ' · no Japão, o telefone serve para o GPS do táxi' : ''}</small></div>
+      <div class="tx-ac">${x.local_audio_path ? `<button class="b-sec" data-ouvir>🔊 Ouvir</button><audio data-som preload="none"></audio>` : ''}
+        ${S.b.isOwner ? `<button class="b-sec" data-corrigir>Corrigir</button><button class="b-sec" data-buscar>Atualizar do Google</button>` : ''}</div>`
+    : `<div class="tx-vazio"><h2>${esc(nomeLat || '')}</h2><p>Ainda não há o nome e a morada em ${esc((LINGUAS.find(([k]) => k === L) || [, 'língua local'])[1].toLowerCase())}.</p>
+      ${S.b.isOwner ? '<button class="b-pri b-larga" data-buscar>Ir buscar ao Google Maps</button><button class="b-sec b-larga" data-corrigir>Escrever à mão</button>' : '<p class="meta">Pede ao organizador da viagem para os preencher.</p>'}</div>`}</div>`;
+  document.body.appendChild(w);
+  w.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-fechar]') || e.target === w) return w.remove();
+    if (e.target.closest('[data-ouvir]')) { const au = w.querySelector('[data-som]'); if (!au.src) { const u = (await urlsAssinados('audio', [x.local_audio_path]))[x.local_audio_path]; if (!u) return toast('Áudio indisponível sem rede.'); au.src = u; } au.currentTime = 0; au.play(); return; }
+    if (e.target.closest('[data-confirmar]')) { const r = await sb.from(tab).update({ local_ok: true }).eq('id', id); if (r.error) return toast('Não foi possível guardar.'); x.local_ok = true; toast('Confirmado.'); return vLocal(tab, id); }
+    if (e.target.closest('[data-buscar]')) { const bt = e.target.closest('[data-buscar]'); bt.disabled = true; bt.textContent = 'A procurar…';
+      try { await buscarLocal(tab, id); vLocal(tab, id); } catch (err) { toast(err.message); bt.disabled = false; bt.textContent = 'Tentar outra vez'; } return; }
+    if (e.target.closest('[data-corrigir]')) { w.remove(); folha('Na língua local', campo('local_name', 'Nome', x.local_name) + area('local_address', 'Morada', x.local_address) + campo('local_phone', 'Telefone', tel, 'tel'),
+      async (v) => { const r = await sb.from(tab).update({ local_name: v.local_name || null, local_address: v.local_address || null, local_phone: v.local_phone || null, local_lang: L }).eq('id', id); if (r.error) throw new Error('Não foi possível guardar.');
+        Object.assign(x, v); try { await buscarLocal(tab, id, 'local-audio'); } catch {} setTimeout(() => vLocal(tab, id), 50); }); }
+  });
+}
+// confirmar que o local encontrado pelo Google é mesmo o que queremos
+const distKm = (a1, o1, a2, o2) => { const r = Math.PI / 180, d1 = (a2 - a1) * r, d2 = (o2 - o1) * r; const h = Math.sin(d1 / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(d2 / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
+const digitos = (t) => String(t || '').replace(/\D/g, '').slice(-8);
+function verificacaoLocal(tab, x) {
+  if (x.local_ok || !x.local_place_id || !S.b.isOwner) return '';
+  const sinais = [];
+  if (x.lat != null && x.local_lat != null) { const km = distKm(x.lat, x.lng, x.local_lat, x.local_lng);
+    sinais.push(km <= 0.3 ? `<li class="bom">Fica a ${Math.round(km * 1000)} m do local que tens registado</li>` : `<li class="mau">⚠ Fica a ${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} km do local que tens registado</li>`); }
+  const telMeu = tab === 'hotels' ? x.phone : null;
+  if (telMeu && x.local_phone) sinais.push(digitos(telMeu) === digitos(x.local_phone) ? '<li class="bom">O telefone é o mesmo da tua reserva</li>' : '<li class="mau">⚠ O telefone é diferente do da tua reserva</li>');
+  const gm = `https://www.google.com/maps/search/?api=1&query=${x.local_lat},${x.local_lng}&query_place_id=${encodeURIComponent(x.local_place_id)}`;
+  return `<div class="tx-ver"><p class="tx-ver-t">Confirma que é o sítio certo</p>
+    <p>O Google encontrou: <b>${esc(x.local_nome_lat || '—')}</b>${x.local_morada_lat ? `<br><span>${esc(x.local_morada_lat)}</span>` : ''}</p>
+    ${sinais.length ? `<ul>${sinais.join('')}</ul>` : ''}
+    <div class="tx-ver-ac"><a class="b-sec" href="${gm}" target="_blank" rel="noopener">Ver no Google Maps</a><button class="b-pri" data-confirmar>✓ Está certo</button><button class="b-sec" data-corrigir>Não é este</button></div></div>`;
+}
+// texto de pesquisa (igual ao da função no servidor): quando muda, o nome local é atualizado
+function consultaLocal(tab, x) {
+  if (tab === 'hotels') return [x.name, x.address, x.city].filter(Boolean).join(', ');
+  if (x.transport_mode) return x.from_place ? [x.from_place, x.transport_mode === 'aviao' ? 'aeroporto' : x.transport_mode === 'comboio' ? 'estação' : ''].filter(Boolean).join(' ') : '';
+  return [x.place_name || x.title, x.maps_query && x.maps_query !== x.place_name ? x.maps_query : ''].filter(Boolean).join(', ');
+}
+function elegivelLocal(tab, x) {
+  if (tab === 'hotels') return x.status !== 'cancelado';
+  if (x.transport_mode) return !!x.from_place && ['aviao', 'comboio', 'autocarro', 'barco'].includes(x.transport_mode);
+  return ['visit', 'walk', 'meal'].includes(x.kind) && !!(x.place_name || x.lat != null);
+}
+const faltaLocal = (tab, x) => elegivelLocal(tab, x) && (!x.local_name || x.local_lang !== linguaViagem() || (x.local_query && x.local_query !== consultaLocal(tab, x)));
+// sempre que a viagem carrega ou algo é guardado: preenche, em fundo, o que for novo ou tiver mudado
+const LOCAL_FALHOU = new Set(); let localAOcorrer = false;
+async function autoLocais() {
+  const b = S.b; if (!b?.isOwner || !linguaViagem() || localAOcorrer || b.offline || !navigator.onLine) return;
+  const alvos = [...b.hotels.map((h) => ['hotels', h]), ...b.activities.map((a) => ['activities', a])].filter(([t, x]) => faltaLocal(t, x) && !LOCAL_FALHOU.has(x.id + consultaLocal(t, x)));
+  if (!alvos.length) return; localAOcorrer = true; let n = 0;
+  try { for (const [t, x] of alvos) { if (S.b !== b) break; try { await buscarLocal(t, x.id); n++; } catch { LOCAL_FALHOU.add(x.id + consultaLocal(t, x)); } } }
+  finally { localAOcorrer = false; }
+  if (n) toast(`Nome na língua local atualizado em ${n} ${n === 1 ? 'local' : 'locais'}. Confirma no botão 文A.`);
+}
+async function preencherLocais() {
+  const b = S.b; const alvos = [...b.hotels.map((h) => ['hotels', h]), ...b.activities.map((a) => ['activities', a])].filter(([t, x]) => faltaLocal(t, x));
+  if (!alvos.length) return toast('Já está tudo preenchido.');
+  let ok = 0, falha = 0; for (const [i, [tab, x]] of alvos.entries()) { toast(`A preencher ${i + 1} de ${alvos.length}…`); try { await buscarLocal(tab, x.id); ok++; } catch { falha++; } }
+  toast(`${ok} preenchidos${falha ? ` · ${falha} não encontrados` : ''}. Confirma cada um no botão 文A.`); router();
+}
+
 // estado da viagem: ativa ou inativa (escolhido pelo dono; sem escolha, fica inativa quando termina)
 const viagemAtiva = (t) => { const e = t.info?.estado; if (e === 'ativa') return true; if (e === 'inativa') return false; return !(t.end_date && t.end_date < new Date().toISOString().slice(0, 10)); };
 function vDefinicoes() {
@@ -1021,6 +1106,7 @@ function vDefinicoes() {
     <div class="menu">
       ${b.isOwner ? `<button class="menu-i" data-act="estado-viagem"><span>Estado da viagem</span><small class="est-v ${ativa ? 'on' : ''}">${ativa ? 'Ativa' : 'Inativa'}</small>${I.seg}</button>` : `<div class="menu-i"><span>Estado da viagem</span><small>${ativa ? 'Ativa' : 'Inativa'}</small></div>`}
       ${b.isOwner ? `<button class="menu-i" data-act="cambio"><span>Moeda do país</span><small>${esc((MOEDAS.find(([k]) => k === (t.local_currency || 'EUR')) || [, 'Euro'])[1])}</small>${I.seg}</button>` : ''}
+      ${b.isOwner ? `<button class="menu-i" data-act="lingua"><span>Língua local</span><small>${esc((LINGUAS.find(([k]) => k === (t.info?.lingua || '')) || LINGUAS[0])[1].replace(' (não mostrar)', ''))}</small>${I.seg}</button>` : ''}
       ${it(`#/v/${S.tripId}/participantes`, 'Participantes', `${b.members.length}`)}
     </div>
     <h2 class="sec def-t">Desta app e deste telemóvel</h2>
@@ -1505,6 +1591,9 @@ document.addEventListener('click', async (e) => {
     if (a === 'viajante-novo') return folha('Acrescentar viajante', '<p class="meta">Para quem viaja mas não vai usar a app. Conta para os bilhetes de cada pessoa e pode ter ficha.</p>' + campo('display_name', 'Nome (como aparece na app)', '', 'text', 'required'),
       async (v) => op(sb.from('trip_members').insert({ trip_id: S.tripId, display_name: v.display_name.trim(), role: 'viewer', sort_order: S.b.members.length + 1 }), 'Viajante acrescentado.'));
     if (a === 'dois-passos') return fDoisPassos();
+    if (a === 'local') return vLocal(el.dataset.tab, id);
+    if (a === 'lingua') return folha('Língua local', '<p class="meta">Nos hotéis, atrações, aeroportos e estações aparece um pequeno botão 文A com o nome, a morada e o telefone na língua local, para mostrar ao taxista. Os dados vêm do Google Maps e atualizam-se sozinhos quando acrescentas ou mudas um local.</p>' + escolha('lingua', 'Língua do país', LINGUAS, linguaViagem()),
+      async (v) => { const t = S.b.trip; const info = { ...(t.info || {}), lingua: v.lingua || null }; await op(sb.from('trips').update({ info }).eq('id', t.id), v.lingua ? 'Língua guardada. A preencher hotéis, atrações e estações em fundo…' : 'Língua guardada.'); });
     if (a === 'mudar-pw') return folha('Mudar palavra-passe', '<p class="meta">É a palavra-passe com que entras na app e que desbloqueia as fichas dos viajantes.</p>' + campo('p1', 'Nova palavra-passe', '', 'password', 'required minlength="8" autocomplete="new-password"') + campo('p2', 'Repetir a nova palavra-passe', '', 'password', 'required minlength="8" autocomplete="new-password"'),
       async (v) => { if (v.p1 !== v.p2) throw new Error('As palavras-passe não são iguais.'); const { error } = await sb.auth.updateUser({ password: v.p1 }); if (error) throw new Error(error.message || 'Não foi possível mudar.'); toast('Palavra-passe mudada.'); });
     if (a === 'fichas-ver') { FICHAS_VER = !FICHAS_VER; return vFichas(); }
@@ -1558,6 +1647,7 @@ async function router() {
     render('<main class="pag"><p class="carrega">A carregar a viagem…</p></main>');
     S.tripId = id;
     try { S.b = await carregarViagem(id); } catch { S.b = null; toast('Não foi possível abrir esta viagem.'); return vViagens(); }
+    setTimeout(autoLocais, 1500);
     atualizarCambio();
     setTimeout(completarFotos, 1500);
   }
