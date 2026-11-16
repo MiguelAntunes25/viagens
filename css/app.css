@@ -1442,3 +1442,10 @@ body.pc .rs-cabv { padding: 22px 26px; } body.pc .rs-cabv h1 { font-size: 32px; 
 .tx-ok { color: #2E7D5B; font-style: normal; font-weight: 700; font-size: 12.5px; }
 .b-local.por-ver { position: relative; } .b-local.por-ver::after { content: ''; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #E08A1E; }
 .tr-local { margin-top: 8px; width: 100%; justify-content: center; gap: 6px; } .tr-local b { font-weight: 800; }
+
+/* lista de viagens: botão discreto para ativar/desativar sem entrar */
+.cv-w { position: relative; }
+.cv-est { position: absolute; right: 12px; bottom: 12px; font: 600 11.5px/1 var(--sans, system-ui); padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(243,237,226,.35); background: rgba(255,255,255,.1); color: #F3EDE2; cursor: pointer; }
+.cv-w .cartao-viagem.passada + .cv-est { border-color: var(--linha, #d5dde4); background: var(--fundo, #fff); color: var(--texto2, #4F6273); }
+.cv-w .cartao-viagem { padding-right: 96px; }
+.def-nota { margin: 14px 4px 0; }
