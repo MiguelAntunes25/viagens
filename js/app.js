@@ -273,11 +273,12 @@ async function vViagens() {
   const hoje = new Date().toISOString().slice(0, 10);
   const ord = [...v].sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
   const ativas = ord.filter(viagemAtiva), inativas = ord.filter((t) => !viagemAtiva(t)).reverse();
-  const cartao = (t) => `<a class="cartao-viagem ${viagemAtiva(t) ? '' : 'passada'}" href="#/v/${t.id}">
+  const cartao = (t) => `<div class="cv-w"><a class="cartao-viagem ${viagemAtiva(t) ? '' : 'passada'}" href="#/v/${t.id}">
       <span class="cv-t">${esc(t.title)}</span><span class="cv-s">${esc(t.subtitle || '')}</span><span class="cv-d">${intervalo(t.start_date, t.end_date)}</span>
-      ${t.start_date <= hoje && hoje <= t.end_date ? '<span class="selo">A decorrer</span>' : viagemAtiva(t) && t.start_date > hoje ? `<span class="selo selo-p">Daqui a ${Math.ceil((new Date(t.start_date) - new Date(hoje)) / 864e5)} dias</span>` : ''}</a>`;
+      ${t.start_date <= hoje && hoje <= t.end_date ? '<span class="selo">A decorrer</span>' : viagemAtiva(t) && t.start_date > hoje ? `<span class="selo selo-p">Daqui a ${Math.ceil((new Date(t.start_date) - new Date(hoje)) / 864e5)} dias</span>` : ''}</a>
+      <button class="cv-est" data-act="estado-lista" data-id="${t.id}">${viagemAtiva(t) ? 'Desativar' : 'Ativar'}</button></div>`;
   render(`<main class="pag">
-    <header class="topo"><h1>As nossas viagens</h1><button class="b-ic" data-act="sair" aria-label="Sair">⎋</button></header>
+    <header class="topo"><h1>As nossas viagens</h1><a class="b-ic" href="#/definicoes" aria-label="Definições">${I.roda}</a></header>
     <h2 class="sec vg-t">Ativas <small>${ativas.length}</small></h2>
     <div class="lista">${ativas.map(cartao).join('') || '<p class="vazio">Não há viagens ativas.</p>'}</div>
     ${inativas.length ? `<details class="vg-inat"><summary><span>Inativas</span><small>${inativas.length}</small></summary><div class="lista">${inativas.map(cartao).join('')}</div></details>` : ''}
@@ -932,7 +933,7 @@ function vMais() {
       ${secs.map((s) => it(`#/v/${S.tripId}/secao/${s.id}`, esc(s.title))).join('')}
       ${it(`#/v/${S.tripId}/exportar`, 'Exportar roteiro (PDF)')}
     </div>
-    <div class="menu"><a class="menu-i menu-def" href="#/v/${S.tripId}/definicoes">${I.roda}<span>Definições</span><small>viagem, telemóvel e conta</small>${I.seg}</a></div>${nav('mais')}</main>`);
+    <div class="menu"><a class="menu-i menu-def" href="#/v/${S.tripId}/definicoes">${I.roda}<span>Definições</span><small>desta viagem e gerais</small>${I.seg}</a></div>${nav('mais')}</main>`);
 }
 // ---------- fichas dos viajantes: dados pessoais, só para o dono, com palavra-passe ----------
 // Nunca são guardadas no telemóvel (nem na cópia para usar sem rede): leem-se do servidor só depois de desbloquear.
@@ -1098,26 +1099,35 @@ async function preencherLocais() {
 // estado da viagem: ativa ou inativa (escolhido pelo dono; sem escolha, fica inativa quando termina)
 const viagemAtiva = (t) => { const e = t.info?.estado; if (e === 'ativa') return true; if (e === 'inativa') return false; return !(t.end_date && t.end_date < new Date().toISOString().slice(0, 10)); };
 function vDefinicoes() {
-  setTimeout(async () => { const el = document.querySelector('[data-dp]'); if (!el) return; const on = await temDoisPassos(); el.textContent = on ? 'Ativa' : 'Desligada'; el.classList.toggle('on', on); });
   const b = S.b; const t = b.trip; const ativa = viagemAtiva(t);
   const it = (h, t2, s = '') => `<a class="menu-i" href="${h}"><span>${t2}</span>${s ? `<small>${s}</small>` : ''}${I.seg}</a>`;
-  render(`<main class="pag com-nav"><header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>Definições</h1><p>${esc(t.title)}</p></div></header>
-    <h2 class="sec def-t">Desta viagem</h2>
+  render(`<main class="pag com-nav"><header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>Definições da viagem</h1><p>${esc(t.title)}</p></div></header>
     <div class="menu">
       ${b.isOwner ? `<button class="menu-i" data-act="estado-viagem"><span>Estado da viagem</span><small class="est-v ${ativa ? 'on' : ''}">${ativa ? 'Ativa' : 'Inativa'}</small>${I.seg}</button>` : `<div class="menu-i"><span>Estado da viagem</span><small>${ativa ? 'Ativa' : 'Inativa'}</small></div>`}
       ${b.isOwner ? `<button class="menu-i" data-act="cambio"><span>Moeda do país</span><small>${esc((MOEDAS.find(([k]) => k === (t.local_currency || 'EUR')) || [, 'Euro'])[1])}</small>${I.seg}</button>` : ''}
       ${b.isOwner ? `<button class="menu-i" data-act="lingua"><span>Língua local</span><small>${esc((LINGUAS.find(([k]) => k === (t.info?.lingua || '')) || LINGUAS[0])[1].replace(' (não mostrar)', ''))}</small>${I.seg}</button>` : ''}
       ${it(`#/v/${S.tripId}/participantes`, 'Participantes', `${b.members.length}`)}
+      <button class="menu-i" data-act="offline"><span>Guardar bilhetes neste telemóvel</span><small>para usar sem rede</small>${I.seg}</button>
     </div>
-    <h2 class="sec def-t">Desta app e deste telemóvel</h2>
+    <div class="menu"><a class="menu-i menu-def" href="#/definicoes">${I.roda}<span>Definições gerais</span><small>app, telemóvel e conta</small>${I.seg}</a></div>${nav('mais')}</main>`);
+}
+// definições gerais: não dependem de nenhuma viagem (abrem-se a partir da lista de viagens)
+function vDefinicoesGerais() {
+  setTimeout(async () => { const el = document.querySelector('[data-dp]'); if (!el) return; const on = await temDoisPassos(); el.textContent = on ? 'Ativa' : 'Desligada'; el.classList.toggle('on', on); });
+  if (!/^#\/(definicoes|instalar)/.test(HASH_ANT)) DEF_VOLTA = /^#\/v\//.test(HASH_ANT) ? HASH_ANT : '#/';
+  render(`<main class="pag"><header class="cab-pag"><a class="b-ic" href="${DEF_VOLTA}" aria-label="Voltar">${I.voltar}</a><div><h1>Definições</h1><p>App, telemóvel e conta</p></div></header>
+    <h2 class="sec def-t">Este telemóvel</h2>
     <div class="menu">
       <button class="menu-i" data-act="tema"><span>${temaTxt()}</span><small>tocar para mudar</small>${I.seg}</button>
-      <button class="menu-i" data-act="offline"><span>Guardar bilhetes neste telemóvel</span><small>para usar sem rede</small>${I.seg}</button>
-      ${it('#/instalar', 'Instalar no telemóvel')}
+      <a class="menu-i" href="#/instalar"><span>Instalar no telemóvel</span>${I.seg}</a>
+    </div>
+    <h2 class="sec def-t">Conta e segurança</h2>
+    <div class="menu">
       <button class="menu-i" data-act="dois-passos"><span>${I.cadeado}Verificação em dois passos</span><small class="est-v" data-dp>…</small>${I.seg}</button>
       <button class="menu-i" data-act="mudar-pw"><span>${I.cadeado}Mudar palavra-passe</span><small>a mesma da entrada na app</small>${I.seg}</button>
       <button class="menu-i" data-act="sair"><span>Sair</span>${I.seg}</button>
-    </div>${nav('mais')}</main>`);
+    </div>
+    <p class="meta def-nota">O estado de cada viagem (ativa ou inativa) muda-se na lista de viagens. A moeda, a língua e os participantes estão nas definições de cada viagem.</p></main>`);
 }
 
 // reservas antecipadas: voos, hotéis de cada cidade e o que o roteiro manda reservar, por data
@@ -1554,6 +1564,12 @@ document.addEventListener('click', async (e) => {
       return toast(error ? error.message : 'Conta criada. Confirma o email que te enviámos e depois entra.'); }
     if (a === 'tema') { const seq = { auto: 'light', light: 'dark', dark: 'auto' }; localStorage.setItem('tema', seq[temaAtual()]); aplicarTema(); return router(); }
     if (a === 'nova-viagem') return fNovaViagem();
+    if (a === 'estado-lista') { e.preventDefault(); const t = (S.trips || []).find((x) => x.id === id); if (!t) return;
+      const nova = viagemAtiva(t) ? 'inativa' : 'ativa'; const info = { ...(t.info || {}), estado: nova };
+      const { data, error } = await sb.from('trips').update({ info }).eq('id', id).select('id');
+      if (error || (Array.isArray(data) && !data.length)) return toast('Só quem organiza a viagem pode mudar o estado.');
+      if (S.b?.trip?.id === id) S.b.trip.info = info;
+      toast(nova === 'ativa' ? `"${t.title}" passou para as ativas.` : `"${t.title}" passou para as inativas.`); return vViagens(); }
     if (a === 'opcao') { sessionStorage.setItem('opcao:' + el.dataset.dia, el.dataset.g); return router(); }
     if (a === 'fixar-opcao') { const info = { ...(S.b.trip.info || {}) }; info.escolhas = { ...(info.escolhas || {}), [el.dataset.dia]: el.dataset.g };
       return op(sb.from('trips').update({ info }).eq('id', S.tripId), 'Opção escolhida.'); }
@@ -1641,6 +1657,7 @@ async function router() {
   if (!s) return vLogin();
   if (parts[0] === 'login') { location.hash = '#/'; return; }
   if (parts[0] === 'instalar') return vInstalar();
+  if (parts[0] === 'definicoes') return vDefinicoesGerais();
   if (parts[0] !== 'v') return vViagens();
   const id = parts[1];
   if (S.tripId !== id || !S.b) {
@@ -1667,6 +1684,8 @@ async function router() {
   let aberta = false; try { aberta = !!sessionStorage.getItem('app-aberta'); sessionStorage.setItem('app-aberta', '1'); } catch {}
   if (!aberta && /^#\/v\//.test(location.hash)) { try { history.replaceState(null, '', location.pathname + location.search + '#/'); } catch { location.hash = '#/'; } }
 })();
+let HASH_ANT = '', DEF_VOLTA = '#/';
+window.addEventListener('hashchange', (ev) => { try { HASH_ANT = new URL(ev.oldURL).hash; } catch {} });
 window.addEventListener('hashchange', () => { if (!/\/fichas?(\/|$)/.test(location.hash)) { S.fichas = []; FICHAS_VER = false; } router(); });
 matchMedia('(min-width: 1000px)').addEventListener('change', () => router());
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => router());
