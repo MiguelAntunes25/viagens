@@ -19,6 +19,10 @@ const icT = (m, p = '') => `<span class="ict ${m || 'comboio'} ${p}" aria-hidden
 const EST_T = { por_comprar: 'Por comprar', pago: 'Pago', compra_no_dia: 'Compra no dia', incluido: 'Incluído' };
 const estT = (st) => `<span class="estT ${st || 'por_comprar'}">${EST_T[st] || EST_T.por_comprar}</span>`;
 const I = {
+  cadeado: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  roda: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  cidades: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V9l5-3v15M10 21V4l6 3v14M16 21v-9l4 2v7M7.5 11h.01M7.5 14h.01M12.5 9h.01M12.5 12h.01M12.5 15h.01M18 16h.01"/></svg>',
+  info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>',
   fotos: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg>',
   ouvir: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
   pausa: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
@@ -77,11 +81,11 @@ const membro = (id) => S.b.members.find((m) => m.id === id);
 const pessoas = () => S.b.members;
 
 // ---------- infra de ecrã ----------
-const ehPC = () => matchMedia('(min-width: 1000px)').matches;
+const ehPC = () => window.__VISTA ? window.__VISTA === 'pc' : matchMedia('(min-width: 1000px)').matches; // __VISTA: só na pré-visualização
 function lateral() {
   const b = S.b, id = S.tripId, p = location.hash.replace(/^#\/?/, '').split('/');
   const v = p[2] || 'resumo';
-  const ativo = v === 'a' && p[4] === 'r' ? 'ranking' : ['dia', 'a'].includes(v) ? 'dia' : ['ranking', 'reservas', 'resumo', 'hoteis', 'transportes'].includes(v) ? v : 'mais';
+  const ativo = v === 'a' && p[4] === 'r' ? 'ranking' : ['dia', 'a'].includes(v) ? 'dia' : ['cidades', 'tempo', 'mapa'].includes(v) ? 'resumo' : ['ranking', 'reservas', 'resumo', 'hoteis', 'transportes'].includes(v) ? v : 'mais';
   const diaAtual = Number(sessionStorage.getItem('ultimoDia:' + id)) || diaDeHoje() || 1;
   const rk = b.rankings.find((r) => r.is_primary) || b.rankings[0];
   const it = [['resumo', 'Resumo'], ['dia', 'Dia', `#/v/${id}/dia/${diaAtual}`], ['hoteis', 'Hotéis'],
@@ -176,6 +180,7 @@ function folha(titulo, corpo, aoGuardar) {
     e.preventDefault(); const btn = e.submitter; btn.disabled = true;
     try { await aoGuardar(Object.fromEntries(new FormData(e.target))); fechar(); } catch (err) { toast(err.message || 'Não foi possível guardar.'); btn.disabled = false; }
   });
+  ligarMoeda(w);
   w.querySelector('input,select,textarea')?.focus();
 }
 const campo = (n, l, v = '', t = 'text', extra = '') => `<label class="campo"><span>${l}</span><input name="${n}" type="${t}" value="${esc(v)}" ${extra}></label>`;
@@ -238,6 +243,7 @@ function fotoDoDia(day) {
 }
 
 async function recarregar() { S.b = await carregarViagem(S.tripId); router(); }
+if (window.__ARRANQUE) window.__recarregar = recarregar; // só na pré-visualização
 async function op(p, ok) { const { error } = await p; if (error) throw error; if (ok) toast(ok); await recarregar(); }
 
 // ---------- entrar ----------
@@ -265,12 +271,16 @@ async function vViagens() {
   render('<main class="pag"><p class="carrega">A carregar…</p></main>');
   const v = S.trips = await listarViagens();
   const hoje = new Date().toISOString().slice(0, 10);
-  const ord = [...v].sort((a, b) => ((a.end_date || '') < hoje) - ((b.end_date || '') < hoje) || String(a.start_date).localeCompare(String(b.start_date)));
+  const ord = [...v].sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
+  const ativas = ord.filter(viagemAtiva), inativas = ord.filter((t) => !viagemAtiva(t)).reverse();
+  const cartao = (t) => `<a class="cartao-viagem ${viagemAtiva(t) ? '' : 'passada'}" href="#/v/${t.id}">
+      <span class="cv-t">${esc(t.title)}</span><span class="cv-s">${esc(t.subtitle || '')}</span><span class="cv-d">${intervalo(t.start_date, t.end_date)}</span>
+      ${t.start_date <= hoje && hoje <= t.end_date ? '<span class="selo">A decorrer</span>' : viagemAtiva(t) && t.start_date > hoje ? `<span class="selo selo-p">Daqui a ${Math.ceil((new Date(t.start_date) - new Date(hoje)) / 864e5)} dias</span>` : ''}</a>`;
   render(`<main class="pag">
     <header class="topo"><h1>As nossas viagens</h1><button class="b-ic" data-act="sair" aria-label="Sair">⎋</button></header>
-    <div class="lista">${ord.map((t) => `<a class="cartao-viagem ${t.end_date < hoje ? 'passada' : ''}" href="#/v/${t.id}">
-      <span class="cv-t">${esc(t.title)}</span><span class="cv-s">${esc(t.subtitle || '')}</span><span class="cv-d">${intervalo(t.start_date, t.end_date)}</span>
-      ${t.start_date <= hoje && hoje <= t.end_date ? '<span class="selo">A decorrer</span>' : t.end_date < hoje ? '<span class="selo selo-c">Arquivo</span>' : ''}</a>`).join('') || '<p class="vazio">Ainda não há viagens.</p>'}</div>
+    <h2 class="sec vg-t">Ativas <small>${ativas.length}</small></h2>
+    <div class="lista">${ativas.map(cartao).join('') || '<p class="vazio">Não há viagens ativas.</p>'}</div>
+    ${inativas.length ? `<details class="vg-inat"><summary><span>Inativas</span><small>${inativas.length}</small></summary><div class="lista">${inativas.map(cartao).join('')}</div></details>` : ''}
     <button class="b-sec b-larga" data-act="nova-viagem">${I.mais} Nova viagem</button></main>`);
 }
 
@@ -309,25 +319,35 @@ async function vDia(n, selId) {
     <div class="foto-dia" data-act="ver-fotos-dia" data-id="${day.id}" style="${foto ? `background-image:url('${esc(foto)}')` : ''}"><div class="vinheta"></div>${credito(fotoExt)}
       ${foto ? `<button class="foto-ver" data-act="ver-fotos-dia" data-id="${day.id}">${I.fotos}Fotos do dia</button>` : ''}${!day.photo_path && b.isOwner ? `<label class="foto-add">${I.mais} Foto do dia<input type="file" accept="image/*" hidden data-up="foto-dia" data-id="${day.id}"></label>` : ''}</div>
     <header class="cab cab3">
+      <span class="cab-ndia">Dia ${day.day_number} de ${b.days.length}</span>
       <h1 class="cab-titulo">${esc(day.city || '')}</h1>
       <div class="cab-linha">
         <div class="cab-lado">${prev ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${prev.day_number}" aria-label="Dia anterior">${I.voltar}</a>` : ''}</div>
         <div class="cab-data">${dataLonga(day.date)}</div>
         <div class="cab-lado dir">${next ? `<a class="b-mini" href="#/v/${S.tripId}/dia/${next.day_number}" aria-label="Dia seguinte">${I.seg}</a>` : ''}</div>
       </div>
-      <a class="tp-cartao" data-tempo="${day.date}" href="#/v/${S.tripId}/tempo/${day.day_number}/d"><span class="tp-sem">A carregar o tempo…</span></a>
-      ${rota ? `<a class="cab-mapa" href="${rota}">${I.mapa}<span>Mapa do dia</span></a>` : ''}
     </header>
     <section class="painel">
       <div class="pega" aria-hidden="true"></div>
       ${day.offline ? '' : ''}${b.offline ? '<p class="aviso">Sem rede: a mostrar a última cópia guardada.</p>' : ''}
       ${grupos.length > 1 ? `<div class="opcoes" role="group" aria-label="Opções do dia">${grupos.map((g) => `<button class="op ${g === escolhida ? 'on' : ''}" data-act="opcao" data-dia="${day.id}" data-g="${g}">${esc(labels[g])}</button>`).join('')}</div>
         ${b.isOwner && !b.trip.info?.escolhas?.[day.ext_key] ? `<button class="b-link" data-act="fixar-opcao" data-dia="${day.ext_key}" data-g="${escolhida}">Decidir: ficar com a ${esc(labels[escolhida].split('·')[0].trim())}</button>` : ''}` : ''}
-      ${day.intro ? `<details class="intro"><summary>Sobre o dia</summary><p>${esc(day.intro).replace(/\n/g, '<br>')}</p>${day.rain_alt ? `<p class="chuva"><strong>Se chover:</strong> ${esc(day.rain_alt)}</p>` : ''}</details>` : ''}
+      ${extrasDia(day, rota)}
       <div class="bils">${itens.map(bilhete).join('') || '<p class="vazio">Sem atividades neste dia.</p>'}</div>
       ${day.date < b.trip.end_date ? `<a class="dormida ${hotel ? '' : 'sem'}" href="#/v/${S.tripId}/hoteis"><span class="dormida-ic" aria-hidden="true">${I.cama}</span><span class="dormida-t"><small>Dormida</small><strong>${hotel ? esc(hotel.name) : 'Sem hotel reservado'}</strong></span><span class="dormida-s" aria-hidden="true">${I.seg}</span></a>` : ''}
     </section></div>${painel}
     ${nav('dia')}</main>`);
+}
+
+// tempo, mapa e "sobre o dia": três mosaicos por baixo do cabeçalho azul
+function extrasDia(day, rota) {
+  const tHref = `#/v/${S.tripId}/tempo/${day.day_number}/d`;
+  const sobre = day.intro ? `<div class="sobre-dia" hidden><p>${esc(day.intro).replace(/\n/g, '<br>')}</p>${day.rain_alt ? `<p class="chuva"><strong>Se chover:</strong> ${esc(day.rain_alt)}</p>` : ''}</div>` : '';
+  const bSobre = (cls, conteudo) => day.intro ? `<button class="${cls}" data-act="sobre-dia" aria-expanded="false">${conteudo}</button>` : '';
+  return `<div class="dx-a">
+      <a class="dx-a-t" href="${tHref}"><span class="tp-tile" data-tempo="${day.date}"><span class="tp-sem">…</span></span><small>Tempo</small></a>
+      ${rota ? `<a class="dx-a-t" href="${rota}"><span class="dx-ic">${I.mapa}</span><small>Mapa do dia</small></a>` : ''}
+      ${bSobre('dx-a-t', `<span class="dx-ic">${I.info}</span><small>Sobre o dia</small>`)}</div>${sobre}`;
 }
 
 // ---------- ficha da atividade ----------
@@ -361,15 +381,24 @@ async function vAtividade(id, comoPainel = false, voltar = null) {
         <p class="rota"><strong>${esc(a.from_place || '')}</strong> ${hhmm(a.start_time)} → <strong>${esc(a.to_place || '')}</strong> ${hhmm(a.arrive_time)}</p>
         <p class="meta">${esc([f.carrier, f.number && (a.transport_mode === 'aviao' ? 'Voo ' : '') + f.number, f.terminal].filter(Boolean).join(' · '))}</p>
         <button class="b-sec" data-act="ficha-transporte" data-id="${f.id}">${b.isOwner ? 'Reserva, valores e bilhetes' : 'Ver bilhetes'}</button></div>`; })() : ''}
+      ${!a.transport_mode && (fichaT(a) || (b.isOwner && (a.needs_ticket || a.kind === 'visit'))) ? (() => { const f = fichaT(a);
+        const val = f?.total_price != null ? dinheiroD(f.total_price, f.currency) : '';
+        if (!b.isOwner && !f) return '';
+        return `<div class="caixa pr-cx"><div class="cx-h"><h2>Preço</h2>${f ? estT(f.status) : ''}</div>
+          ${val ? `<p class="pr-v">${val}${f.deposit && f.status !== 'pago' ? `<small>Sinal pago: ${dinheiro(f.deposit, f.currency)}${convTxt(f.deposit, f.currency) ? ' (' + convTxt(f.deposit, f.currency) + ')' : ''}</small>` : ''}</p>` : `<p class="meta">${f ? 'Sem valor registado.' : 'Ainda sem preço registado.'}</p>`}
+          ${f?.vendor_url && f.status === 'por_comprar' ? `<a class="b-sec" href="${esc(f.vendor_url)}" target="_blank" rel="noopener">Comprar</a>` : ''}
+          ${b.isOwner ? `<button class="b-sec" data-act="preco-ativ" data-id="${a.id}">${f ? 'Editar preço e pagamento' : 'Registar preço'}</button>` : ''}</div>`; })() : ''}
       ${a.description || a.short ? `<div class="caixa"><h2>Sobre a visita</h2><p>${esc(a.description || a.short)}</p></div>` : ''}
       ${a.guide ? guiaHtml(a.guide, audioGuia, a.title) : ''}
       ${(a.how_to || []).length ? `<div class="caixa"><h2>Como ir</h2><ol class="passos">${a.how_to.map((p) => `<li>${esc(p)}</li>`).join('')}</ol></div>` : ''}
       ${(a.meal_options || []).length ? `<div class="caixa"><h2>Opções</h2><ul class="refeicoes">${a.meal_options.map((m) => `<li><a href="${esc(mapsQueryLink(m.q || m.name))}" target="_blank" rel="noopener"><span class="rf-n">${esc(m.name)}</span><span class="rf-t">${esc(m.type || '')}</span></a></li>`).join('')}</ul></div>` : ''}
-      ${a.needs_ticket || tk.length || b.isOwner ? `<details class="caixa dobra" ${tk.length ? 'open' : ''}><summary class="cx-h"><h2>Bilhetes</h2><span class="ok">${tk.length} de ${pessoas().length}</span></summary>
-        <div class="tk-grid">${pessoas().map((m) => { const t = tk.find((x) => x.member_id === m.id);
-          return t ? `<span class="tk-w"><button class="tk" data-act="ver-bilhete" data-path="${esc(t.path)}">${I.qr}${esc(m.display_name)}</button>${b.isOwner ? `<button class="tk-x" data-act="apagar-bilhete" data-id="${t.id}" data-path="${esc(t.path)}" aria-label="Apagar bilhete de ${esc(m.display_name)}">✕</button>` : ''}</span>`
+      ${a.needs_ticket || tk.length || b.isOwner ? (() => { const tkP = tk.filter((t) => t.member_id && (t.doc_type || 'bilhete') === 'bilhete'); const outros = tk.filter((t) => !tkP.includes(t));
+        return `<details class="caixa dobra" ${tk.length ? 'open' : ''}><summary class="cx-h"><h2>Bilhetes e documentos</h2><span class="ok">${tkP.length} de ${pessoas().length}${outros.length ? ` · +${outros.length}` : ''}</span></summary>
+        <div class="tk-grid">${pessoas().map((m) => { const t = tkP.find((x) => x.member_id === m.id);
+          return t ? `<span class="tk-w"><button class="tk tk-doc bilhete" data-act="ver-bilhete" data-path="${esc(t.path)}">${I.qr}<span class="tk-tx"><b>${esc(m.display_name)}</b><small>${esc(t.label || 'Bilhete')}</small></span></button>${b.isOwner ? `<button class="tk-ed" data-act="editar-doc" data-id="${t.id}" aria-label="Mudar nome">✎</button><button class="tk-x" data-act="apagar-bilhete" data-id="${t.id}" data-path="${esc(t.path)}" aria-label="Apagar bilhete de ${esc(m.display_name)}">✕</button>` : ''}</span>`
             : b.isOwner ? `<label class="tk tk-falta">${I.mais}${esc(m.display_name)}<input type="file" accept="image/*,application/pdf" hidden data-up="bilhete" data-campo="activity_id" data-id="${a.id}" data-membro="${m.id}"></label>`
-            : `<span class="tk tk-falta">${esc(m.display_name)}: sem bilhete</span>`; }).join('')}</div></details>` : ''}
+            : `<span class="tk tk-falta">${esc(m.display_name)}: sem bilhete</span>`; }).join('')}</div>
+        ${outros.length || b.isOwner ? `<p class="tk-sub">Outros documentos <small>faturas, comprovativos, reservas…</small></p>${documentos(outros, 'activity_id', a.id)}` : ''}</details>`; })() : ''}
       ${(a.tips || []).length ? `<div class="caixa"><h2>Dicas</h2>${a.tips.map((t) => `<p class="${t.startsWith('⚠') ? 'alerta' : ''}">${esc(t)}</p>`).join('')}</div>` : ''}
       <details class="caixa dobra" ${rem.length ? 'open' : ''}><summary class="cx-h"><h2>Lembretes</h2><span class="ok">${rem.length ? rem.length : 'Nenhum'}</span></summary>
         ${b.isOwner ? `<button class="b-link lemb-add" data-act="novo-lembrete" data-campo="activity_id" data-id="${a.id}">${I.mais} Adicionar lembrete</button>` : ''}
@@ -488,14 +517,16 @@ async function tempoDaViagem() {
 }
 // pinta o tempo onde houver lugares marcados com data-tempo (o ecrã aparece logo; o tempo chega depois)
 async function pintarTempo() {
-  if (!document.querySelector('[data-tempo]') || !S.b) return;
+  if (!document.querySelector('[data-tempo], [data-tempo-viagem]') || !S.b) return;
   let T = {}; try { T = await tempoDaViagem(); } catch { return; }
+  document.querySelectorAll('[data-tempo-viagem]').forEach((el) => { const xs = Object.values(T); el.textContent = xs.length ? `${Math.min(...xs.map((x) => x.min))}° a ${Math.max(...xs.map((x) => x.max))}°` : '—'; });
   document.querySelectorAll('[data-tempo]').forEach((el) => { const x = T[el.dataset.tempo];
     if (!x) { el.innerHTML = el.classList.contains('tp-cartao') ? '<span class="tp-sem">Tempo indisponível</span>' : '<span class="tp-sem">—</span>'; return; }
     if (el.classList.contains('tp-cartao')) el.innerHTML = x.tipo === 'hist'
       ? `<span class="tp-c-t"><b>${x.max}°</b><i>${x.min}°</i></span><span class="tp-c-txt"><b>Histórico deste dia</b><span>Média de ${x.nAnos} anos · ${chuvaTxt(x)}</span><small>Previsão a partir de ${previsaoEm(el.dataset.tempo)}${x.local ? ' · ' + esc(x.local) : ''}</small></span><span class="tp-c-seta">›</span>`
       : `${icTempo(x.t, 'g')}<span class="tp-c-t"><b>${x.max}°</b><i>${x.min}°</i></span>
       <span class="tp-c-txt"><b>${TEMPO_TXT[x.t]}</b><span>${x.chuva}% chuva · vento ${x.vento} km/h</span><small>${ETQ[x.tipo]}${x.tipo === 'tend' ? ' (pouco fiável a esta distância)' : ''}${x.local ? ' · ' + esc(x.local) : ''}</small></span><span class="tp-c-seta">›</span>`;
+    else if (el.classList.contains('tp-tile')) el.innerHTML = x.tipo === 'hist' ? `<b>${x.max}°<i>/${x.min}°</i></b><em>chuva ${x.chuvosos}/${x.nAnos} anos</em>` : `${icTempo(x.t)}<b>${x.max}°<i>/${x.min}°</i></b>`;
     else if (el.classList.contains('rs-tempo')) el.innerHTML = x.tipo === 'hist' ? `<b>${x.max}°</b>${x.chuvosos ? `<span class="rs-tg">${icGota(1)}${x.chuvosos}/${x.nAnos}</span>` : ''}` : `${icTempo(x.t)}<b>${x.max}°</b>`;
     else el.innerHTML = `${icTempo(x.t)}<b>${x.max}°</b><span>${x.min}°</span>`; });
 }
@@ -564,12 +595,13 @@ function vResumo() {
       <div class="rs-rod">${tr ? `<div class="lin tr"><span class="ic">${icTr}</span>${esc(tr)}</div>` : ''}${hotel}</div></article></li>`;
   };
   render(`<main class="pag com-nav resumo-pag">
-    <header class="rs-topo"><a class="b-ic esc rs-voltar" href="#/" aria-label="Todas as viagens">${I.voltar}</a>
-      <h1>${esc(b.trip.title)}</h1><p>${intervalo(b.trip.start_date, b.trip.end_date)} · ${b.days.length} dias</p>
-      ${(info.cidades || []).length ? `<div class="rs-cid">${info.cidades.map((c) => `<span><b>${esc(c.cidade)}</b> · ${c.noites} noite${c.noites > 1 ? 's' : ''}</span>`).join('')}</div>` : ''}
-      <div class="rs-botoes"><a class="cab-mapa" href="#/v/${S.tripId}/mapa">${I.mapa}<span>Mapa da viagem</span></a><a class="cab-mapa" href="#/v/${S.tripId}/tempo">${icTempo('solnuvem', 'bt')}<span>Tempo</span></a></div></header>
+    ${(() => { const cs = cidadesViagem(); const nl = b.activities.filter((a) => a.lat != null && !a.transport_mode).length; const noitesT = cs.reduce((n, c) => n + c.noites, 0);
+      return `<header class="rs-bloco"><div class="rs-cabv"><a class="rs-voltar" href="#/" aria-label="Todas as viagens">${I.voltar}</a>
+        <div><h1>${esc(b.trip.title)}</h1><p>${intervalo(b.trip.start_date, b.trip.end_date)} · ${b.days.length} dias</p></div></div>
+        <nav class="rs-seg"><a href="#/v/${S.tripId}/mapa">${I.mapa}<b>Mapa</b><small>${nl} locais</small></a>
+          <a href="#/v/${S.tripId}/cidades">${I.cidades}<b>Cidades</b><small>${cs.length ? `${cs.length} · ${noitesT} noites` : 'por definir'}</small></a>
+          <a href="#/v/${S.tripId}/tempo">${icTempo('solnuvem', 'seg')}<b>Tempo</b><small data-tempo-viagem>…</small></a></nav></header>`; })()}
     ${b.offline ? '<p class="aviso">Sem rede: a mostrar a última cópia guardada.</p>' : ''}
-    ${info.perfil ? `<p class="perfil">${esc(info.perfil)}</p>` : ''}
     <ol class="rs-linha">${b.days.map(dia).join('')}</ol>
     ${info.nota_restaurantes ? `<p class="nota">${esc(info.nota_restaurantes)}</p>` : ''}
     ${nav('resumo')}</main>`);
@@ -619,7 +651,7 @@ function vHoteis() {
       <dl class="hx-dl">${linha('Check-in', dataCurta(h.check_in) + (h.check_in.slice(0, 4) !== b.trip.start_date.slice(0, 4) ? ' ' + h.check_in.slice(0, 4) : '') + (h.check_in_time ? ' · ' + esc(h.check_in_time) : ''))}${linha('Check-out', dataCurta(h.check_out) + (h.check_out.slice(0, 4) !== b.trip.start_date.slice(0, 4) ? ' ' + h.check_out.slice(0, 4) : '') + (h.check_out_time ? ' · ' + esc(h.check_out_time) : ''))}
         ${linha('Noites', noites(h.check_in, h.check_out))}${linha('Regime', esc(regimeTxt(h.board)))}${linha('Quartos', h.rooms || 1)}
         ${linha('Agência', esc(h.agency || ''))}${linha('Reserva', esc(h.booking_code || ''))}${linha('Telefone', h.phone ? `<a href="tel:${esc(h.phone)}">${esc(h.phone)}</a>` : '')}
-        ${b.isOwner ? linha('Valor total', dinheiroD(h.total_price, h.currency)) + linha('Sinal', h.deposit != null ? dinheiroD(h.deposit, h.currency) : '') + linha('Falta pagar', faltaPagar(h) != null ? (h.status === 'pago' ? 'Nada · pago' : dinheiroD(faltaPagar(h), h.currency)) : '') + linha('Por noite e quarto', pq != null ? dinheiro(pq, h.currency) : '') + linha(h.status === 'pago' ? 'Pago a' : 'Pagamento', h.payment_date ? dataCurta(h.payment_date) : '') : ''}</dl>
+        ${b.isOwner ? linha('Valor total', dinheiroD(h.total_price, h.currency)) + linha('Sinal', h.deposit != null ? dinheiroD(h.deposit, h.currency) : '') + linha('Falta pagar', faltaPagar(h) != null ? (h.status === 'pago' ? 'Nada · pago' : dinheiroD(faltaPagar(h), h.currency)) : '') + linha('Por noite e quarto', pq != null ? dinheiroD(pq, h.currency) : '') + linha(h.status === 'pago' ? 'Pago a' : 'Pagamento', h.payment_date ? dataCurta(h.payment_date) : '') : ''}</dl>
       ${h.address ? `<a class="b-maps peq" href="${esc(mapsPlaceLink({ maps_url: h.maps_url, maps_query: [h.name, h.address].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener">${I.maps}${esc(h.address)}</a>` : ''}
       ${h.notes ? `<p class="hx-notas">${esc(h.notes)}</p>` : ''}
       ${documentos(tk, 'hotel_id', h.id)}
@@ -629,9 +661,9 @@ function vHoteis() {
   const cartao = (h) => { const ft = fotoDe(h.check_in < b.trip.start_date ? b.trip.start_date : h.check_in);
     const mapa = `<a class="hgc-mapa" href="${esc(mapsPlaceLink({ maps_url: h.maps_url, maps_query: [h.name, h.address || h.city].filter(Boolean).join(', ') }))}" target="_blank" rel="noopener" aria-label="Ver ${esc(h.name)} no Google Maps">${I.maps}Mapa</a>`;
     const pago = h.status === 'pago';
-    const c1 = b.isOwner && h.total_price != null ? (pago ? `<span class="hgc-c"><small>Total</small>${dinheiro(h.total_price, h.currency)}</span>` : `<span class="hgc-c"><small>Sinal</small>${dinheiro(h.deposit || 0, h.currency)}</span>`) : '';
+    const c1 = b.isOwner && h.total_price != null ? (pago ? `<span class="hgc-c"><small>Total</small>${dinheiroD(h.total_price, h.currency)}</span>` : `<span class="hgc-c"><small>Sinal</small>${dinheiroD(h.deposit || 0, h.currency)}</span>`) : '';
     const c2 = pago ? '<span class="hgc-c hgc-pago"><small>Estado</small>Pago</span>'
-      : `<span class="hgc-c hgc-falta"><small>Falta</small>${b.isOwner && faltaPagar(h) != null ? dinheiro(faltaPagar(h), h.currency) : 'Por pagar'}</span>`;
+      : `<span class="hgc-c hgc-falta"><small>Falta</small>${b.isOwner && faltaPagar(h) != null ? dinheiroD(faltaPagar(h), h.currency) : 'Por pagar'}</span>`;
     return `<details class="hy-card hgc ${pago ? 'pago' : 'pend'}">
       <summary><span class="hgc-tt"><span class="hgc-foto" style="${ft ? `background-image:url('${esc(ft)}')` : ''}" aria-hidden="true"></span>
           <span class="hgc-nm"><span class="hy-nome">${esc(h.name)}</span></span><span class="hgc-seta" aria-hidden="true">${I.seg}</span></span>
@@ -681,20 +713,49 @@ function vHoteis() {
         const canc = h.cancel_by ? `Cancela até ${Number(h.cancel_by.slice(8, 10))} ${MSx[Number(h.cancel_by.slice(5, 7)) - 1]}` : 'Sem data de cancelamento';
         return `<li class="hz-l ${est}"><span class="hz-d">${d ? `<b>${Number(d.slice(8, 10))} ${MSx[Number(d.slice(5, 7)) - 1]}</b>` : '<b>—</b>'}<small>${nota}</small></span>
           <span class="hz-m"><strong>${esc(h.name)}</strong><small>${canc}</small></span>
-          <span class="hz-v">${faltaPagar(h) != null ? dinheiro(faltaPagar(h), h.currency) : '—'}</span></li>`; };
+          <span class="hz-v">${faltaPagar(h) != null ? dinheiroD(faltaPagar(h), h.currency) : '—'}</span></li>`; };
       return `<h2 class="hy-sec hy-sec-pag">Pagamentos${por.length ? `<span>${por.length} por fazer</span>` : ''}</h2><section class="hz" aria-label="Pagamentos">
         ${por.length ? `<ol class="hz-lista">${por.map(linha).join('')}</ol>` : '<p class="hz-ok">Todos os hotéis estão pagos.</p>'}
-        ${pagos.length ? `<details class="hz-pagos"><summary>Já pagos (${pagos.length})</summary><ul>${pagos.map((h) => `<li><span>${esc(h.name)}</span><span>${h.total_price != null ? dinheiro(h.total_price, h.currency) : ''}</span></li>`).join('')}</ul></details>` : ''}
+        ${pagos.length ? `<details class="hz-pagos"><summary>Já pagos (${pagos.length})</summary><ul>${pagos.map((h) => `<li><span>${esc(h.name)}</span><span>${h.total_price != null ? dinheiroD(h.total_price, h.currency) : ''}</span></li>`).join('')}</ul></details>` : ''}
       </section>`;
     })() : ''}
     ${cancelados.length ? `<details class="ht-canc"><summary>Reservas canceladas (${cancelados.length})</summary>${cancelados.map((h) => `<div class="ht-canc-i"><span><strong>${esc(h.name)}</strong> · ${dataCurta(h.check_in)} → ${dataCurta(h.check_out)}</span><span><button class="b-link" data-act="hotel" data-id="${h.id}">Ver</button></span></div>`).join('')}</details>` : ''}
     ${nav('hoteis')}</main>`);
 }
 const maisDia = (d) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10); };
+const TIPOS_DOC = [['bilhete', 'Bilhete'], ['embarque', 'Cartão de embarque'], ['reserva', 'Reserva / confirmação'], ['pagamento', 'Comprovativo de pagamento'], ['fatura', 'Fatura'], ['seguro', 'Seguro'], ['outro', 'Outro']];
+const tipoDoc = (k) => (TIPOS_DOC.find(([v]) => v === k) || TIPOS_DOC[0])[1];
 function documentos(tk, campoId, id) {
   const b = S.b;
-  return `<div class="tk-grid">${tk.map((t) => `<span class="tk-w"><button class="tk" data-act="ver-bilhete" data-path="${esc(t.path)}">${I.qr}${esc(membro(t.member_id)?.display_name || t.label || 'Documento')}</button>${b.isOwner ? `<button class="tk-x" data-act="apagar-bilhete" data-id="${t.id}" data-path="${esc(t.path)}" aria-label="Apagar">✕</button>` : ''}</span>`).join('')}
-    ${b.isOwner ? `<button class="tk tk-falta" data-act="escolher-membro" data-campo="${campoId}" data-id="${id}">${I.mais}Bilhete ou documento</button>` : ''}</div>`;
+  return `<div class="tk-grid">${tk.map((t) => { const quem = membro(t.member_id)?.display_name;
+    return `<span class="tk-w"><button class="tk tk-doc ${t.doc_type || 'bilhete'}" data-act="ver-bilhete" data-path="${esc(t.path)}">${I.qr}<span class="tk-tx"><b>${esc(t.label || tipoDoc(t.doc_type))}</b><small>${esc(tipoDoc(t.doc_type))}${quem ? ' · ' + esc(quem) : ''}</small></span></button>${b.isOwner ? `<button class="tk-ed" data-act="editar-doc" data-id="${t.id}" aria-label="Mudar nome">✎</button><button class="tk-x" data-act="apagar-bilhete" data-id="${t.id}" data-path="${esc(t.path)}" aria-label="Apagar">✕</button>` : ''}</span>`; }).join('')}
+    ${b.isOwner ? `<button class="tk tk-falta" data-act="escolher-membro" data-campo="${campoId}" data-id="${id}">${I.mais}Juntar documento</button>` : ''}</div>`;
+}
+
+// ---------- cidades: noites em cada cidade (do roteiro: info.cidades, por ordem) ----------
+const CORES_CID = ['#D9A441', '#5B9BD5', '#5DB38A', '#B77FC0', '#E07B5F', '#4FB3BF', '#C9A227', '#8C9EAF'];
+function cidadesViagem() {
+  const b = S.b; const lista = b.trip.info?.cidades || []; let k = 0;
+  return lista.map((c, i) => { const ini = isoMais(b.trip.start_date, k); k += Number(c.noites) || 0; const fim = isoMais(b.trip.start_date, k);
+    return { nome: c.cidade, noites: Number(c.noites) || 0, ini, fim, cor: CORES_CID[i % CORES_CID.length], dias: b.days.filter((d) => d.date >= ini && d.date <= fim) }; });
+}
+function anelCidades(cs, tam = 168, esp = 18) {
+  const r = (tam - esp) / 2, c = 2 * Math.PI * r, tot = cs.reduce((n, x) => n + x.noites, 0) || 1; let a = -90;
+  return `<svg class="anel" viewBox="0 0 ${tam} ${tam}" width="${tam}" height="${tam}" aria-hidden="true">${cs.map((x) => { const l = c * x.noites / tot; const o = `<circle cx="${tam / 2}" cy="${tam / 2}" r="${r}" fill="none" stroke="${x.cor}" stroke-width="${esp}" stroke-dasharray="${Math.max(0, l - 3)} ${c - l + 3}" transform="rotate(${a} ${tam / 2} ${tam / 2})"/>`; a += 360 * x.noites / tot; return o; }).join('')}</svg>`;
+}
+function vCidades() {
+  const b = S.b; const cs = cidadesViagem(); const tot = cs.reduce((n, x) => n + x.noites, 0);
+  const cartao = (x) => { const h = hotelNa(x.ini);
+    return `<article class="cd-c" style="--cor:${x.cor}"><div class="cd-t"><span class="cd-pt"></span><h2>${esc(x.nome)}</h2><span class="cd-n"><b>${x.noites}</b> noite${x.noites === 1 ? '' : 's'}</span></div>
+      <p class="cd-dt">${intervalo(x.ini, x.fim)}</p>
+      <div class="cd-bar"><i style="width:${tot ? (x.noites / tot) * 100 : 0}%"></i></div>
+      ${h ? `<a class="cd-h" href="#/v/${S.tripId}/hoteis">${I.cama}<span>${esc(h.name)}</span></a>` : ''}
+      <div class="cd-dias">${x.dias.map((d) => `<a href="#/v/${S.tripId}/dia/${d.day_number}"><small>Dia</small><b>${d.day_number}</b><span>${dataCurta(d.date)}</span></a>`).join('')}</div></article>`; };
+  render(`<main class="pag com-nav cd-pag"><header class="mp-cab"><a class="b-ic" href="#/v/${S.tripId}/resumo" aria-label="Voltar">${I.voltar}</a><div><h1>Cidades</h1><p>${esc(b.trip.title)}</p></div></header>
+    ${cs.length ? `<section class="cd-topo">${anelCidades(cs)}<div class="cd-meio"><b>${cs.length}</b><span>cidade${cs.length === 1 ? '' : 's'}</span><small>${tot} noites</small></div></section>
+      <div class="cd-leg">${cs.map((x) => `<span><i style="background:${x.cor}"></i>${esc(x.nome)} ${x.noites}</span>`).join('')}</div>
+      <div class="cd-lista">${cs.map(cartao).join('')}</div>` : '<p class="vazio">O roteiro desta viagem ainda não indica as noites em cada cidade.</p>'}
+    ${nav('resumo')}</main>`);
 }
 
 // ---------- transportes ----------
@@ -708,28 +769,29 @@ function vTransportes() {
       .sort((x, y) => (toMin(x.h) ?? 9999) - (toMin(y.h) ?? 9999));
     return { d, its };
   }).filter((g) => g.its.length);
-  const orfas = b.bookings.filter((x) => x.activity_ext_key && !b.activities.some((a) => a.ext_key === x.activity_ext_key));
+  const orfas = b.bookings.filter((x) => x.kind !== 'activity' && x.activity_ext_key && !b.activities.some((a) => a.ext_key === x.activity_ext_key));
   const nViag = grupos.reduce((n, g) => n + g.its.length, 0), nVoos = grupos.reduce((n, g) => n + g.its.filter((i) => (i.a?.transport_mode || '') === 'aviao' || i.f?.kind === 'flight').length, 0);
   const cartao = (it) => {
     const a = it.a || {}, f = it.f || {}; const m = a.transport_mode || ({ flight: 'aviao', train: 'comboio', bus: 'autocarro', boat: 'barco', transfer: 'taxi', car: 'taxi' })[f.kind] || 'comboio';
     const de = a.from_place || f.from_place || '', para = a.to_place || f.to_place || '';
-    const hIni = hhmm(a.start_time || f.depart_time), hFim = hhmm(a.arrive_time || f.arrive_time);
+    const lg = m === 'aviao' && (f.legs || []).length ? f.legs : null;
+    const hIni = lg?.[0]?.partida || hhmm(a.start_time || f.depart_time), hFim = lg?.[lg.length - 1]?.chegada || hhmm(a.arrive_time || f.arrive_time);
+    const cia = lg ? [...new Set(lg.map((t) => t.companhia).filter(Boolean))].join(' / ') : f.carrier;
     const alvo = f.id ? `data-act="ficha-transporte" data-id="${f.id}"` : '';
     if (f.scope !== 'viagem' && !it.manual) return `<button class="tr-loc" ${alvo}>${icT(m, 'p')}<span class="tr-loc-t"><b>${hIni}</b> ${esc(de)} → ${esc(para)}<small>${esc(f.carrier || MODOS[m])}</small></span>${estT(f.status)}</button>`;
-    const falta = f.status === 'pago' ? 0 : f.total_price == null ? null : Math.max(0, Number(f.total_price) - (Number(f.deposit) || 0));
     const ntk = bilhetes({ booking_id: f.id }).length;
     const grelhaT = f.status === 'pago'
-      ? `<div class="tr-gr"><span><small>Total</small>${f.total_price != null ? dinheiro(f.total_price, f.currency) : '—'}</span><span><small>Estado</small><b class="ok">Pago</b></span><span class="tr-bil"><small>Bilhetes</small>${ntk}/${pessoas().length}</span></div>`
+      ? `<div class="tr-gr"><span><small>Total</small>${f.total_price != null ? dinheiroD(f.total_price, f.currency) : '—'}</span><span><small>Estado</small><b class="ok">Pago</b></span><span class="tr-bil"><small>Bilhetes</small>${ntk}/${pessoas().length}</span></div>`
       : f.status === 'por_comprar'
-        ? `<div class="tr-gr"><span><small>Sinal</small>${f.deposit != null ? dinheiro(f.deposit, f.currency) : '—'}</span><span><small>Falta</small><b class="f">${falta != null ? dinheiro(falta, f.currency) : '—'}</b></span>${f.vendor_url ? `<a class="tr-comprar" href="${esc(f.vendor_url)}" target="_blank" rel="noopener">${I.link || ''}Comprar</a>` : '<span><small>Bilhetes</small>—</span>'}</div>`
+        ? `<div class="tr-gr"><span><small>Valor</small>${f.total_price != null ? dinheiroD(f.total_price, f.currency) : '—'}</span><span><small>Estado</small><b class="f">Por comprar</b></span>${f.vendor_url ? `<a class="tr-comprar" href="${esc(f.vendor_url)}" target="_blank" rel="noopener">${I.link || ''}Comprar</a>` : '<span><small>Bilhetes</small>—</span>'}</div>`
         : `<div class="tr-gr um"><span><small>${EST_T[f.status]}</small>${esc(f.notes || '')}</span></div>`;
     const linha2 = m === 'aviao'
-      ? `<span class="vt"><span><small>Voo</small><b>${esc(f.number || '—')}</b></span><span><small>Terminal</small><b>${esc(f.terminal || '—')}</b></span></span>`
+      ? `<span class="vt"><span><small>Voo</small><b>${esc(f.number || '—')}</b></span><span><small>Terminal</small><b>${esc(f.terminal || '—')}</b></span>${f.legs?.[0]?.aviao ? `<span><small>Avião</small><b>${esc(f.legs[0].aviao)}</b></span>` : ''}${f.booking_code ? `<span><small>Reserva</small><b>${esc(f.booking_code)}</b></span>` : ''}</span>`
       : f.number || f.booking_code ? `<span class="vt">${f.number ? `<span><small>${m === 'comboio' ? 'Comboio' : 'Número'}</small><b>${esc(f.number)}</b></span>` : ''}${f.booking_code ? `<span><small>Reserva</small><b>${esc(f.booking_code)}</b></span>` : ''}</span>` : `<span class="meta">${esc(MODOS[m])}</span>`;
     return `<article class="tr-pass"><button class="tr-p1" ${alvo}><span class="cid ${a.from_code ? '' : 'nome'}"><b>${esc(a.from_code || de)}</b>${a.from_code ? `<span>${esc(de)}</span>` : ''}<span>${hIni}</span></span>
-      <span class="mid">${icT(m)}<span class="tr-tr"></span><span>${esc(f.carrier || '')}</span></span>
+      <span class="mid">${icT(m)}<span class="tr-tr"></span><span>${esc(cia || '')}</span></span>
       <span class="cid d ${a.to_code ? '' : 'nome'}"><b>${esc(a.to_code || para)}</b>${a.to_code ? `<span>${esc(para)}</span>` : ''}<span>${hFim}</span></span></button>
-      <div class="tr-cut"></div><div class="tr-p2">${linha2}${estT(f.status)}</div>${grelhaT}</article>`;
+      <div class="tr-cut"></div>${m === 'aviao' && (f.legs || []).length > 1 ? `<div class="tr-legs"><p class="tr-esc">${esc(escalaTxt(f.legs))}</p>${f.legs.map((t, i) => `<div class="tr-leg"><span class="n">${i + 1}</span><span class="r"><b>${esc(t.de)} ${esc(t.partida)} → ${esc(t.para)} ${esc(t.chegada)}</b><small>${[t.voo, t.companhia, t.terminal ? 'Terminal ' + t.terminal : '', t.aviao].filter(Boolean).map(esc).join(' · ')}</small></span></div>`).join('')}</div><div class="tr-p2">${f.booking_code ? `<span class="vt"><span><small>Reserva</small><b>${esc(f.booking_code)}</b></span></span>` : '<span></span>'}${estT(f.status)}</div>` : `<div class="tr-p2">${linha2}${estT(f.status)}</div>`}${grelhaT}</article>`;
   };
   render(`<main class="pag com-nav tr-pag"><header class="cab-pag"><div><h1>Transportes</h1><p>${esc(b.trip.title)} · ${nViag} trajetos${nVoos ? ` · ${nVoos} voo${nVoos > 1 ? 's' : ''}` : ''}</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="reserva">${I.mais} Adicionar</button>` : ''}</header>
     ${grupos.map(({ d, its }) => `<section class="tr-bloco"><a class="tr-dia" href="#/v/${S.tripId}/dia/${d.day_number}"><span class="num">${d.day_number}</span><span class="dt"><b>Dia ${d.day_number} · ${dataLonga(d.date)}</b><small>${esc(d.city || '')}</small></span>${I.seg}</a>
@@ -741,6 +803,23 @@ function vTransportes() {
     ${nav('transportes')}</main>`);
 }
 // ficha de um transporte: o que se vê e, para o dono, o que se preenche
+// voos com escala: cada trecho tem partida, chegada, n.º de voo, companhia, terminal e avião
+const CAMPOS_TRECHO = ['de', 'para', 'data', 'partida', 'chegada', 'voo', 'companhia', 'terminal', 'aviao'];
+function trechosVoo(f, a, day) {
+  if (Array.isArray(f.legs) && f.legs.length) return f.legs;
+  return [{ de: a.from_code || a.from_place || '', para: a.to_code || a.to_place || '', data: day?.date || '', partida: hhmm(a.start_time) || '', chegada: hhmm(a.arrive_time) || '', voo: f.number || '', companhia: f.carrier || '', terminal: f.terminal || '', aviao: '' }];
+}
+const formTrecho = (t, i) => `<fieldset class="trecho" data-i="${i}"><legend>Voo ${i + 1}${i ? `<button type="button" class="trecho-x" data-tirar-trecho aria-label="Tirar este voo">✕</button>` : ''}</legend>
+  <div class="duas">${campo(`t${i}_de`, 'De (aeroporto)', t.de, 'text', 'placeholder="LIS"')}${campo(`t${i}_para`, 'Para (aeroporto)', t.para, 'text', 'placeholder="AMS"')}</div>
+  <div class="tres">${campo(`t${i}_data`, 'Data', t.data, 'date')}${campo(`t${i}_partida`, 'Partida', t.partida, 'time')}${campo(`t${i}_chegada`, 'Chegada', t.chegada, 'time')}</div>
+  <div class="duas">${campo(`t${i}_voo`, 'N.º do voo', t.voo, 'text', 'placeholder="TP 662"')}${campo(`t${i}_companhia`, 'Companhia aérea', t.companhia)}</div>
+  <div class="duas">${campo(`t${i}_terminal`, 'Terminal de partida', t.terminal)}${campo(`t${i}_aviao`, 'Avião (modelo)', t.aviao, 'text', 'placeholder="Airbus A320"')}</div></fieldset>`;
+function lerTrechos(v) {
+  const out = []; for (let i = 0; i < 6; i++) { if (!(`t${i}_de` in v)) continue; const t = {}; CAMPOS_TRECHO.forEach((k) => { t[k] = (v[`t${i}_${k}`] || '').trim(); delete v[`t${i}_${k}`]; }); if (Object.values(t).some(Boolean)) out.push(t); }
+  return out;
+}
+const escalaTxt = (legs) => legs.length > 1 ? `${legs.length - 1} escala${legs.length > 2 ? 's' : ''}: ${legs.slice(0, -1).map((t) => t.para).join(', ')}` : 'Direto';
+
 function fichaTransporte(id) {
   const b = S.b; const f = b.bookings.find((x) => x.id === id); if (!f) return;
   const a = b.activities.find((x) => x.ext_key === f.activity_ext_key) || {};
@@ -751,28 +830,46 @@ function fichaTransporte(id) {
   if (!b.isOwner) {
     const w = document.createElement('div'); w.className = 'folha-fundo';
     w.innerHTML = `<div class="folha" role="dialog" aria-modal="true" aria-label="${esc(titulo)}"><div class="folha-top"><h2>${esc(titulo)}</h2><button class="b-ic" data-fechar aria-label="Fechar">✕</button></div>
-      <dl class="dados">${day ? `<dt>Dia</dt><dd>Dia ${day.day_number} · ${dataLonga(day.date)}</dd>` : ''}<dt>Hora</dt><dd>${hhmm(a.start_time)}${a.arrive_time ? ' → ' + hhmm(a.arrive_time) : ''}</dd>${f.carrier ? `<dt>Empresa</dt><dd>${esc(f.carrier)}</dd>` : ''}${f.number ? `<dt>${m === 'aviao' ? 'Voo' : 'Número'}</dt><dd>${esc(f.number)}</dd>` : ''}${f.terminal ? `<dt>Terminal</dt><dd>${esc(f.terminal)}</dd>` : ''}<dt>Estado</dt><dd>${EST_T[f.status]}</dd>${f.total_price != null ? `<dt>Valor</dt><dd>${dinheiroD(f.total_price, f.currency)}</dd>` : ''}</dl>
+      <dl class="dados">${day ? `<dt>Dia</dt><dd>Dia ${day.day_number} · ${dataLonga(day.date)}</dd>` : ''}<dt>Hora</dt><dd>${hhmm(a.start_time)}${a.arrive_time ? ' → ' + hhmm(a.arrive_time) : ''}</dd>${m === 'aviao' && (f.legs || []).length ? `<dt>Voos</dt><dd>${f.legs.map((t) => `${esc(t.voo)} · ${esc(t.de)} ${esc(t.partida)} → ${esc(t.para)} ${esc(t.chegada)}${t.companhia ? ' · ' + esc(t.companhia) : ''}${t.terminal ? ' · T ' + esc(t.terminal) : ''}${t.aviao ? ' · ' + esc(t.aviao) : ''}`).join('<br>')}</dd>` : ''}${f.carrier ? `<dt>${m === 'aviao' ? 'Companhia aérea' : 'Empresa'}</dt><dd>${esc(f.carrier)}</dd>` : ''}${f.number ? `<dt>${m === 'aviao' ? 'Voo' : 'Número'}</dt><dd>${esc(f.number)}</dd>` : ''}${f.terminal ? `<dt>Terminal</dt><dd>${esc(f.terminal)}</dd>` : ''}${f.booking_code ? `<dt>N.º de reserva</dt><dd>${esc(f.booking_code)}</dd>` : ''}${f.vendor ? `<dt>Empresa vendedora</dt><dd>${esc(f.vendor)}</dd>` : ''}<dt>Estado</dt><dd>${EST_T[f.status]}</dd>${f.total_price != null ? `<dt>Valor</dt><dd>${dinheiroD(f.total_price, f.currency)}</dd>` : ''}</dl>
       ${f.notes ? `<p>${esc(f.notes)}</p>` : ''}${documentos(tk, 'booking_id', f.id)}</div>`;
     document.body.appendChild(w); w.addEventListener('click', (e) => { if (e.target.closest('[data-fechar]')) w.remove(); }); return;
   }
   folha(titulo,
     `${day ? `<p class="meta">Dia ${day.day_number} · ${dataLonga(day.date)} · ${hhmm(a.start_time)}${a.arrive_time ? ' → ' + hhmm(a.arrive_time) : ''}</p>` : ''}`
     + escolha('status', 'Estado', Object.entries(EST_T), f.status)
-    + `<div class="duas">${campo('carrier', 'Empresa', f.carrier)}${campo('number', m === 'aviao' ? 'N.º do voo' : 'N.º (comboio, linha)', f.number)}</div>`
-    + `<div class="duas">${m === 'aviao' ? campo('terminal', 'Terminal de partida', f.terminal) : ''}${campo('booking_code', 'N.º de reserva', f.booking_code)}</div>`
-    + `<div class="duas">${campo('total_price', 'Valor total', f.total_price ?? '', 'number', 'step="0.01" min="0" inputmode="decimal"')}${campo('deposit', 'Sinal pago', f.deposit ?? '', 'number', 'step="0.01" min="0" inputmode="decimal"')}</div>`
-    + `<div class="duas">${escolha('currency', 'Moeda', moedasForm(f.currency), f.currency || 'EUR')}${campo('payment_date', 'Data de pagamento', f.payment_date, 'date')}</div>`
-    + campo('vendor_url', 'Ligação para a empresa vendedora', f.vendor_url, 'url', 'placeholder="https://"') + campo('seats', 'Lugares', f.seats) + area('notes', 'Notas', f.notes)
+    + (m === 'aviao'
+      ? `<p class="form-sec">Voos</p><div class="trechos">${trechosVoo(f, a, day).map(formTrecho).join('')}</div><button type="button" class="b-sec b-larga trecho-mais" data-mais-trecho>${I.mais} Acrescentar voo (escala)</button><p class="form-sec">Reserva e pagamento</p>` + campo('booking_code', 'N.º de reserva', f.booking_code)
+      : `<div class="duas">${campo('carrier', 'Empresa', f.carrier)}${campo('number', 'N.º (comboio, linha)', f.number)}</div>` + campo('booking_code', 'N.º de reserva', f.booking_code))
+    + campo('vendor', 'Empresa vendedora', f.vendor, 'text', `placeholder="${m === 'aviao' ? 'ex.: TAP, eDreams, agência de viagens' : 'ex.: NS, SNCB, Trainline'}"`)
+    + campoValor('total_price', 'Valor total', f.total_price) + campo('payment_date', 'Data de pagamento', f.payment_date, 'date')
+    + campo('vendor_url', 'Ligação para a empresa vendedora', f.vendor_url, 'url', 'placeholder="https://"') + (m === 'aviao' ? '' : campo('seats', 'Lugares', f.seats)) + area('notes', 'Notas', f.notes)
     + `<div class="campo"><span>Bilhetes e documentos</span>${documentos(tk, 'booking_id', f.id)}</div>`
     + (!f.activity_ext_key || !a.id ? '<button type="button" class="b-perigo" data-apagar>Apagar este transporte</button>' : ''),
-  async (v) => { ['total_price', 'deposit'].forEach((k) => { v[k] = v[k] === '' ? null : Number(v[k]); }); if (!v.payment_date) v.payment_date = null;
+  async (v) => { v.total_price = v.total_price === '' ? null : Number(v.total_price); v.deposit = null; if (!v.payment_date) v.payment_date = null;
+    if (m === 'aviao') { const legs = lerTrechos(v); v.legs = legs; if (legs.length) { v.carrier = legs[0].companhia || null; v.number = legs.map((t) => t.voo).filter(Boolean).join(' + ') || null; v.terminal = legs[0].terminal || null; } }
     v.paid_at = v.status === 'pago' ? (f.paid_at || new Date().toISOString()) : null;
-    await op(sb.from('bookings').update(v).eq('id', id), 'Transporte guardado.'); });
+    v.currency = 'EUR'; await op(sb.from('bookings').update(v).eq('id', id), 'Transporte guardado.'); });
   ligarApagar('bookings', id, 'Apagar este transporte e os bilhetes associados?');
-  if (cambio()) { const form = document.querySelector('.folha form'); const tot = form.querySelector('[name=total_price]');
-    const out = document.createElement('p'); out.className = 'meta conv-vivo'; tot.closest('.duas').after(out);
-    const upd = () => { const v = form.querySelector('[name=total_price]').value; out.textContent = v ? 'Valor total ' + convTxt(v, form.querySelector('[name=currency]').value) : ''; };
-    form.addEventListener('input', upd); form.addEventListener('change', upd); upd(); }
+  if (m === 'aviao') { const form = document.querySelector('.folha form'); const cx = form.querySelector('.trechos');
+    form.querySelector('[data-mais-trecho]').addEventListener('click', () => { const ns = [...cx.querySelectorAll('.trecho')].map((x) => Number(x.dataset.i)); const i = ns.length ? Math.max(...ns) + 1 : 0; if (i > 5) return;
+      const ant = cx.querySelector('.trecho:last-of-type'); const prev = ant ? { de: ant.querySelector(`[name$="_para"]`).value, data: ant.querySelector(`[name$="_data"]`).value, companhia: ant.querySelector(`[name$="_companhia"]`).value } : {};
+      cx.insertAdjacentHTML('beforeend', formTrecho({ de: prev.de || '', para: '', data: prev.data || '', partida: '', chegada: '', voo: '', companhia: prev.companhia || '', terminal: '', aviao: '' }, i)); });
+    cx.addEventListener('click', (e) => { if (e.target.closest('[data-tirar-trecho]')) e.target.closest('.trecho').remove(); }); }
+}
+
+// preço de uma visita, excursão ou entrada (na moeda em que se paga; por omissão, a moeda do país)
+function fichaPreco(actId) {
+  const b = S.b; const a = b.activities.find((x) => x.id === actId); if (!a) return;
+  const f = fichaT(a) || {};
+  folha('Preço · ' + a.title,
+    escolha('status', 'Estado', Object.entries(EST_T), f.status || 'por_comprar')
+    + campoValor('total_price', 'Valor total', f.total_price) + campoValor('deposit', 'Sinal pago', f.deposit) + campo('payment_date', 'Data de pagamento', f.payment_date, 'date')
+    + `<div class="duas">${campo('carrier', 'Empresa / bilheteira', f.carrier)}${campo('booking_code', 'N.º de reserva', f.booking_code)}</div>`
+    + campo('vendor_url', 'Ligação para comprar', f.vendor_url, 'url', 'placeholder="https://"') + area('notes', 'Notas', f.notes),
+  async (v) => { ['total_price', 'deposit'].forEach((k) => { v[k] = v[k] === '' ? null : Number(v[k]); }); if (!v.payment_date) v.payment_date = null;
+    v.paid_at = v.status === 'pago' ? (f.paid_at || new Date().toISOString()) : null; v.currency = 'EUR';
+    if (f.id) await op(sb.from('bookings').update(v).eq('id', f.id), 'Preço guardado.');
+    else await op(sb.from('bookings').insert({ ...v, trip_id: S.tripId, kind: 'activity', scope: 'local', title: a.title, activity_ext_key: a.ext_key }), 'Preço guardado.'); });
 }
 
 // ---------- mapa (só pontos; cada ponto abre o Google Maps no local) ----------
@@ -827,32 +924,172 @@ async function geocodificar(q) {
 function vMais() {
   const b = S.b; const secs = b.sections.filter((s) => s.kind !== 'transport_tips');
   const it = (h, t, s = '') => `<a class="menu-i" href="${h}"><span>${t}</span>${s ? `<small>${s}</small>` : ''}${I.seg}</a>`;
-  const feitas = b.prebookings.filter((p) => p.done).length;
   render(`<main class="pag com-nav"><header class="cab-pag"><div><h1>Mais</h1><p>${esc(b.trip.title)}</p></div></header>
     <div class="menu">
-      ${b.isOwner ? it(`#/v/${S.tripId}/reservas`, 'Reservas antecipadas', `${feitas} de ${b.prebookings.length} feitas`) : ''}
+      ${b.isOwner ? (() => { const r = itensReserva().filter((x) => x.tipo !== 'info'); return it(`#/v/${S.tripId}/reservas`, 'Reservas antecipadas', `${r.filter((x) => x.feito).length} de ${r.length} feitas`); })() : ''}
       ${it(`#/v/${S.tripId}/checklist`, 'Checklist antes da partida')}
       ${secs.map((s) => it(`#/v/${S.tripId}/secao/${s.id}`, esc(s.title))).join('')}
-      ${it(`#/v/${S.tripId}/participantes`, 'Participantes', `${b.members.length}`)}
-      ${b.isOwner ? `<button class="menu-i" data-act="cambio"><span>Moeda e câmbio</span><small>${esc(b.trip.local_currency || 'EUR')}${b.trip.info?.cambio?.ativo ? ' · conversão ligada' : ''}</small>${I.seg}</button>` : ''}
       ${it(`#/v/${S.tripId}/exportar`, 'Exportar roteiro (PDF)')}
-      <button class="menu-i" data-act="offline"><span>Guardar bilhetes neste telemóvel</span><small>para usar sem rede</small>${I.seg}</button>
+    </div>
+    <div class="menu"><a class="menu-i menu-def" href="#/v/${S.tripId}/definicoes">${I.roda}<span>Definições</span><small>viagem, telemóvel e conta</small>${I.seg}</a></div>${nav('mais')}</main>`);
+}
+// ---------- fichas dos viajantes: dados pessoais, só para o dono, com palavra-passe ----------
+// Nunca são guardadas no telemóvel (nem na cópia para usar sem rede): leem-se do servidor só depois de desbloquear.
+let FICHAS_ATE = 0; let FICHAS_VER = false;
+const mascara = (v) => !v ? '—' : FICHAS_VER ? esc(v) : '•••• ' + esc(String(v).slice(-3));
+const dataPT = (d) => d ? d.split('-').reverse().join('/') : '—';
+// verificação em dois passos (código de 6 dígitos de uma app de autenticação)
+async function fatorTotp() { try { const { data } = await sb.auth.mfa.listFactors(); return (data?.totp || []).find((f) => f.status === 'verified') || null; } catch { return null; } }
+const temDoisPassos = async () => !!(await fatorTotp());
+async function fDoisPassos() {
+  const f = await fatorTotp();
+  if (f) return folha('Verificação em dois passos', '<p class="meta">Está <b>ativa</b>. Para a desligar, escreve um código da app de autenticação.</p>' + campo('codigo', 'Código', '', 'text', 'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required'),
+    async (v) => { const r = await sb.auth.mfa.challengeAndVerify({ factorId: f.id, code: v.codigo.trim() }); if (r.error) throw new Error('Código errado.');
+      const u = await sb.auth.mfa.unenroll({ factorId: f.id }); if (u.error) throw new Error('Não foi possível desligar.'); toast('Verificação em dois passos desligada.'); router(); });
+  try { const { data } = await sb.auth.mfa.listFactors(); for (const x of (data?.all || []).filter((x) => x.status !== 'verified')) await sb.auth.mfa.unenroll({ factorId: x.id }); } catch {}
+  const { data: en, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Roteiros Miguel ' + new Date().toISOString().slice(0, 10) });
+  if (error || !en) { toast('Não foi possível iniciar a ativação.'); return; }
+  folha('Ativar verificação em dois passos', `<ol class="dp-passos"><li>Instala no telemóvel uma app de autenticação (Google Authenticator, Microsoft Authenticator ou a das palavras-passe do iPhone).</li>
+      <li>Na app, escolhe adicionar conta e lê este código QR:</li></ol>
+    <div class="dp-qr"><img src="${en.totp.qr_code}" alt="Código QR para a app de autenticação"></div>
+    <p class="meta">Se não conseguires ler o QR, escreve esta chave na app: <code class="dp-chave">${esc(en.totp.secret)}</code> <button type="button" class="fx-cp" data-act="copiar" data-v="${esc(en.totp.secret)}">⧉</button></p>
+    <ol class="dp-passos" start="3"><li>Escreve o código de 6 dígitos que a app mostra:</li></ol>` + campo('codigo', 'Código', '', 'text', 'inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required'),
+  async (v) => { const r = await sb.auth.mfa.challengeAndVerify({ factorId: en.id, code: v.codigo.trim() }); if (r.error) throw new Error('Código errado. Confirma a hora do telemóvel e tenta de novo.');
+    toast('Verificação em dois passos ativada.'); router(); });
+}
+
+async function vFichas(fid) {
+  const b = S.b; if (!b.isOwner) { location.hash = `#/v/${S.tripId}/participantes`; return; }
+  const mb = fid && b.members.find((m) => m.ficha_id === fid);
+  const cab = `<header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/participantes" aria-label="Voltar">${I.voltar}</a><div><h1>${fid ? 'Ficha' + (mb ? ' · ' + esc(mb.display_name) : '') : 'Fichas dos viajantes'}</h1><p>Informação pessoal · só tu tens acesso</p></div></header>`;
+  if (Date.now() > FICHAS_ATE) {
+    render(`<main class="pag com-nav">${cab}<section class="fx-lock"><span class="fx-ic">${I.cadeado}</span><h2>Informação protegida</h2><p>Para ver os documentos e contactos dos viajantes, confirma que és tu.</p>
+      <form class="form" data-desbloquear><label class="campo"><span>Palavra-passe</span><input type="password" name="password" autocomplete="current-password" required></label>
+        ${await temDoisPassos() ? '<label class="campo"><span>Código da app de autenticação</span><input name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 dígitos" required></label>' : '<p class="fx-2p">A verificação em dois passos está desligada. <a href="#/v/' + S.tripId + '/definicoes">Ativar nas Definições</a></p>'}
+        <button class="b-pri b-larga" type="submit">Desbloquear</button></form>
+      <p class="meta">Fica desbloqueado durante 5 minutos neste ecrã. Nada disto é guardado no telemóvel.</p></section>${nav('mais')}</main>`);
+    document.querySelector('[data-desbloquear]').addEventListener('submit', async (e) => { e.preventDefault(); const btn = e.submitter; btn.disabled = true;
+      const fd = new FormData(e.target); const { data: { user } } = await sb.auth.getUser(); const { error } = await sb.auth.signInWithPassword({ email: user?.email, password: fd.get('password') });
+      if (error) { toast('Palavra-passe errada.'); btn.disabled = false; return; }
+      const fator = await fatorTotp(); if (fator) { const r = await sb.auth.mfa.challengeAndVerify({ factorId: fator.id, code: String(fd.get('codigo') || '').trim() }); if (r.error) { toast('Código errado ou expirado.'); btn.disabled = false; return; } }
+      FICHAS_ATE = Date.now() + 5 * 60e3; vFichas(fid); });
+    return;
+  }
+  const { data: fs0, error } = await sb.from('fichas_pessoais').select('*').order('ordem'); const fs = fid ? (fs0 || []).filter((f) => f.id === fid) : fs0;
+  if (error) { toast('Não foi possível ler as fichas.'); return; }
+  const fim = b.trip.end_date; const seisM = isoMais(fim, 183);
+  const aviso = (v) => !v ? '' : v < b.trip.start_date ? `<span class="fx-av mau">Caduca antes da viagem</span>` : v < fim ? `<span class="fx-av mau">Caduca durante a viagem</span>` : v < seisM ? `<span class="fx-av meio">Menos de 6 meses de validade após a viagem</span>` : `<span class="fx-av ok">Válido para esta viagem</span>`;
+  const lin = (rot, val, copia) => `<div class="fx-l"><dt>${rot}</dt><dd>${val}${copia && FICHAS_VER ? `<button class="fx-cp" data-act="copiar" data-v="${esc(copia)}" aria-label="Copiar">⧉</button>` : ''}</dd></div>`;
+  const cartao = (f) => `<article class="fx-c"><div class="fx-t"><h2>${esc(f.nome)}</h2><button class="b-ic" data-act="ficha-editar" data-id="${f.id}" aria-label="Editar">✎</button></div><dl>
+    ${lin('Data de nascimento', dataPT(f.data_nascimento))}
+    ${lin('Cartão de Cidadão / BI', mascara(f.doc_identificacao), f.doc_identificacao)}
+    ${lin('Passaporte', `${mascara(f.passaporte)}${f.passaporte_validade ? ` <small>válido até ${dataPT(f.passaporte_validade)}</small>` : ''}`, f.passaporte)}
+    ${f.passaporte_validade ? `<div class="fx-l"><dt></dt><dd>${aviso(f.passaporte_validade)}</dd></div>` : ''}
+    ${lin('Email', (f.emails || []).map((e) => `<a href="mailto:${esc(e)}">${esc(e)}</a>`).join('<br>') || '—')}
+    ${lin('Telefone', f.telefone ? `<a href="tel:${esc(f.telefone)}">${esc(f.telefone)}</a>` : '—')}
+    ${lin('Contacto de emergência', f.emergencia_nome ? `${esc(f.emergencia_nome)}${f.emergencia_tel ? ` · <a href="tel:${esc(f.emergencia_tel)}">${esc(f.emergencia_tel)}</a>` : ''}` : '—')}
+    ${f.notas ? lin('Notas', esc(f.notas)) : ''}</dl></article>`;
+  render(`<main class="pag com-nav fx-pag">${cab}
+    <div class="fx-barra"><button class="b-sec" data-act="fichas-ver">${FICHAS_VER ? 'Esconder números' : 'Mostrar números'}</button><button class="b-sec" data-act="fichas-bloquear">${I.cadeado} Bloquear</button></div>
+    <div class="fx-lista">${(fs || []).map(cartao).join('') || '<p class="vazio">Ainda não há fichas.</p>'}</div>
+    ${fid ? '' : `<button class="b-pri b-larga" data-act="ficha-editar">${I.mais} Nova ficha</button>`}${nav('mais')}</main>`);
+  S.fichas = fs || []; S.fichaAtual = fid || null;
+}
+function fFicha(id) {
+  const f = (S.fichas || []).find((x) => x.id === id) || { emails: [] };
+  folha(id ? 'Editar ficha' : 'Nova ficha', campo('nome', 'Nome completo', f.nome, 'text', 'required')
+    + `<div class="duas">${campo('data_nascimento', 'Data de nascimento', f.data_nascimento, 'date')}${campo('doc_identificacao', 'Cartão de Cidadão / BI', f.doc_identificacao)}</div>`
+    + `<div class="duas">${campo('passaporte', 'N.º do passaporte', f.passaporte)}${campo('passaporte_validade', 'Validade do passaporte', f.passaporte_validade, 'date')}</div>`
+    + area('emails', 'Emails (um por linha)', (f.emails || []).join('\n')) + campo('telefone', 'Telefone', f.telefone, 'tel')
+    + `<div class="duas">${campo('emergencia_nome', 'Contacto de emergência', f.emergencia_nome)}${campo('emergencia_tel', 'Telefone de emergência', f.emergencia_tel, 'tel')}</div>`
+    + area('notas', 'Notas', f.notas) + (id ? '<button type="button" class="b-perigo" data-apagar>Apagar esta ficha</button>' : ''),
+  async (v) => { if (Date.now() > FICHAS_ATE) throw new Error('O acesso expirou. Volta a desbloquear.');
+    v.emails = String(v.emails || '').split(/[\n,;]+/).map((x) => x.trim()).filter(Boolean); ['data_nascimento', 'passaporte_validade'].forEach((k) => { if (!v[k]) v[k] = null; }); v.updated_at = new Date().toISOString();
+    const r = id ? await sb.from('fichas_pessoais').update(v).eq('id', id) : await sb.from('fichas_pessoais').insert({ ...v, ordem: (S.fichas || []).length + 1 });
+    if (r.error) throw new Error('Não foi possível guardar.'); toast('Ficha guardada.'); FICHAS_ATE = Date.now() + 5 * 60e3; vFichas(S.fichaAtual); });
+  const bt = document.querySelector('.folha [data-apagar]'); if (bt) bt.addEventListener('click', async () => { if (!confirm('Apagar esta ficha?')) return; await sb.from('fichas_pessoais').delete().eq('id', id); document.querySelector('.folha-fundo')?.remove(); toast('Ficha apagada.'); location.hash = `#/v/${S.tripId}/participantes`; });
+}
+
+// estado da viagem: ativa ou inativa (escolhido pelo dono; sem escolha, fica inativa quando termina)
+const viagemAtiva = (t) => { const e = t.info?.estado; if (e === 'ativa') return true; if (e === 'inativa') return false; return !(t.end_date && t.end_date < new Date().toISOString().slice(0, 10)); };
+function vDefinicoes() {
+  setTimeout(async () => { const el = document.querySelector('[data-dp]'); if (!el) return; const on = await temDoisPassos(); el.textContent = on ? 'Ativa' : 'Desligada'; el.classList.toggle('on', on); });
+  const b = S.b; const t = b.trip; const ativa = viagemAtiva(t);
+  const it = (h, t2, s = '') => `<a class="menu-i" href="${h}"><span>${t2}</span>${s ? `<small>${s}</small>` : ''}${I.seg}</a>`;
+  render(`<main class="pag com-nav"><header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>Definições</h1><p>${esc(t.title)}</p></div></header>
+    <h2 class="sec def-t">Desta viagem</h2>
+    <div class="menu">
+      ${b.isOwner ? `<button class="menu-i" data-act="estado-viagem"><span>Estado da viagem</span><small class="est-v ${ativa ? 'on' : ''}">${ativa ? 'Ativa' : 'Inativa'}</small>${I.seg}</button>` : `<div class="menu-i"><span>Estado da viagem</span><small>${ativa ? 'Ativa' : 'Inativa'}</small></div>`}
+      ${b.isOwner ? `<button class="menu-i" data-act="cambio"><span>Moeda do país</span><small>${esc((MOEDAS.find(([k]) => k === (t.local_currency || 'EUR')) || [, 'Euro'])[1])}</small>${I.seg}</button>` : ''}
+      ${it(`#/v/${S.tripId}/participantes`, 'Participantes', `${b.members.length}`)}
+    </div>
+    <h2 class="sec def-t">Desta app e deste telemóvel</h2>
+    <div class="menu">
       <button class="menu-i" data-act="tema"><span>${temaTxt()}</span><small>tocar para mudar</small>${I.seg}</button>
+      <button class="menu-i" data-act="offline"><span>Guardar bilhetes neste telemóvel</span><small>para usar sem rede</small>${I.seg}</button>
       ${it('#/instalar', 'Instalar no telemóvel')}
-      ${it('#/', 'Todas as viagens')}
+      <button class="menu-i" data-act="dois-passos"><span>${I.cadeado}Verificação em dois passos</span><small class="est-v" data-dp>…</small>${I.seg}</button>
+      <button class="menu-i" data-act="mudar-pw"><span>${I.cadeado}Mudar palavra-passe</span><small>a mesma da entrada na app</small>${I.seg}</button>
       <button class="menu-i" data-act="sair"><span>Sair</span>${I.seg}</button>
     </div>${nav('mais')}</main>`);
 }
 
+// reservas antecipadas: voos, hotéis de cada cidade e o que o roteiro manda reservar, por data
+function itensReserva() {
+  const b = S.b; const out = [];
+  b.activities.filter((a) => a.transport_mode === 'aviao').forEach((a) => { const f = fichaT(a); const d = b.days.find((x) => x.id === a.day_id);
+    const feito = !!f && ['pago', 'incluido'].includes(f.status);
+    out.push({ tipo: 'voo', titulo: `Voo ${a.from_place || ''} → ${a.to_place || ''}`, sub: d ? `Dia ${d.day_number} · ${dataLonga(d.date)}` : '', para: d?.date, quando: null, quandoTxt: 'Quanto antes',
+      feito, estado: feito ? 'Comprado' : 'Por comprar', alvo: f ? `data-act="ficha-transporte" data-id="${f.id}"` : '', acao: f ? 'Dados do voo' : '' }); });
+  cidadesViagem().forEach((c) => { const hs = b.hotels.filter((h) => h.status !== 'cancelado' && h.check_in < c.fim && c.ini < h.check_out);
+    let n = 0; for (let k = 0; k < c.noites; k++) { const d = isoMais(c.ini, k); if (hs.some((h) => h.check_in <= d && d < h.check_out)) n++; }
+    const feito = c.noites > 0 && n === c.noites, pago = feito && hs.every((h) => h.status === 'pago');
+    out.push({ tipo: 'hotel', titulo: `Hotel em ${c.nome}`, sub: `${c.noites} noite${c.noites === 1 ? '' : 's'} · ${intervalo(c.ini, c.fim)}${hs.length ? ' · ' + hs.map((h) => h.name).join(', ') : ''}`, para: c.ini, quando: null, quandoTxt: 'Quanto antes',
+      feito, estado: feito ? (pago ? 'Pago' : 'Reservado') : n ? `${n} de ${c.noites} noites` : 'Por reservar',
+      alvo: feito ? `href="#/v/${S.tripId}/hoteis"` : `data-act="hotel-reservar" data-ini="${c.ini}" data-fim="${c.fim}" data-cidade="${esc(c.nome)}"`, acao: feito ? 'Ver hotéis' : 'Registar hotel' }); });
+  b.prebookings.filter((p) => !(!p.activity_ext_key && /^(voos?|hot[eé]is?)\b/i.test(p.title))).forEach((p) => {
+    const a = b.activities.find((x) => x.ext_key === p.activity_ext_key); const d = a && b.days.find((x) => x.id === a.day_id);
+    const naoPreciso = /não é preciso|nao e preciso/i.test(p.deadline_text || '');
+    out.push({ tipo: naoPreciso ? 'info' : a?.transport_mode ? 'comboio' : 'bilhete', titulo: p.title, sub: d ? `Dia ${d.day_number} · ${dataLonga(d.date)}` : '', para: d?.date,
+      quando: p.deadline_at ? p.deadline_at.slice(0, 10) : null, quandoTxt: p.deadline_text || 'Quanto antes', feito: p.done, pre: p, a, nota: p.note, link: p.link }); });
+  const chave = (x) => x.tipo === 'info' ? '9999' : x.quando || '0000';
+  return out.sort((x, y) => chave(x).localeCompare(chave(y)) || String(x.para || '').localeCompare(String(y.para || '')));
+}
 function vReservas() {
-  const b = S.b;
-  render(`<main class="pag com-nav"><header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>Reservas antecipadas</h1><p>Por ordem de urgência</p></div></header>
-    <ul class="check">${b.prebookings.map((p) => { const a = b.activities.find((x) => x.ext_key === p.activity_ext_key);
-      return `<li class="${p.done ? 'feito' : ''}"><label><input type="checkbox" data-act="pre" data-id="${p.id}" ${p.done ? 'checked' : ''} ${b.isOwner ? '' : 'disabled'}><span><strong>${esc(p.title)}</strong>
-      <span class="meta">${esc(p.deadline_text || '')}</span>${p.note ? `<span>${esc(p.note)}</span>` : ''}</span></label>
-      <div class="pre-l">${p.link ? `<a href="${esc(p.link)}" target="_blank" rel="noopener">Reservar</a>` : ''}${a ? `<a href="#/v/${S.tripId}/a/${a.id}">Ver atividade</a>` : ''}
-      ${b.isOwner ? `<button class="b-link" data-act="novo-lembrete" data-campo="prebooking_id" data-id="${p.id}">Lembrete</button>` : ''}
-      ${b.reminders.filter((r) => r.prebooking_id === p.id).map((r) => `<span class="lb">${I.sino}${offsetTxt(r.offset_minutes)}<button data-act="apagar-lembrete" data-id="${r.id}" aria-label="Apagar">✕</button></span>`).join('')}</div></li>`; }).join('')}</ul>
+  const b = S.b; const hoje = new Date().toISOString().slice(0, 10); const todos = itensReserva();
+  const porFazer = todos.filter((x) => !x.feito && x.tipo !== 'info'), feitos = todos.filter((x) => x.feito), info = todos.filter((x) => x.tipo === 'info' && !x.feito);
+  const total = porFazer.length + feitos.length; const pct = total ? Math.round(feitos.length / total * 100) : 0;
+  const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const MES3 = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+  const grupo = (x) => x.quando ? `${MESES[Number(x.quando.slice(5, 7)) - 1]} ${x.quando.slice(0, 4)}` : 'Quanto antes';
+  const ico = (t) => t === 'voo' ? icT('aviao') : t === 'comboio' ? icT('comboio') : t === 'hotel' ? `<span class="ict hotel">${I.cama}</span>` : `<span class="ict bil">${I.qr}</span>`;
+  const estado = (x) => { if (x.feito) return `<span class="ra-e ok">${x.estado || 'Feita'}</span>`;
+    if (x.estado) return `<span class="ra-e por">${x.estado}</span>`;
+    if (x.quando && x.quando > hoje) { const n = Math.ceil((new Date(x.quando) - new Date(hoje)) / 864e5); return `<span class="ra-e abre">${n === 1 ? 'Amanhã' : `Daqui a ${n} dias`}</span>`; }
+    return `<span class="ra-e ja">Já pode reservar</span>`; };
+  const cartao = (x) => {
+    const dt = x.quando ? `<b>${Number(x.quando.slice(8, 10))}</b><small>${MES3[Number(x.quando.slice(5, 7)) - 1]}</small>` : `<b class="ja">JÁ</b>`;
+    const lembr = x.pre ? b.reminders.filter((r) => r.prebooking_id === x.pre.id) : [];
+    return `<li class="ra-c ${x.feito ? 'feito' : ''} ${x.tipo}">
+      <div class="ra-dt">${dt}</div>
+      <div class="ra-corpo"><div class="ra-l1">${ico(x.tipo)}<div class="ra-tx">${estado(x)}<strong>${esc(x.titulo)}</strong>${x.sub ? `<span>${esc(x.sub)}</span>` : ''}</div></div>
+        ${x.quandoTxt && x.quando ? `<p class="ra-q">${esc(x.quandoTxt)}</p>` : ''}${x.nota ? `<p class="ra-n">${esc(x.nota)}</p>` : ''}
+        <div class="ra-ac">${x.link && !x.feito ? `<a class="ra-b pri" href="${esc(x.link)}" target="_blank" rel="noopener">Reservar</a>` : ''}
+          ${x.alvo && b.isOwner ? (x.alvo.startsWith('href') ? `<a class="ra-b" ${x.alvo}>${x.acao}</a>` : `<button class="ra-b ${x.feito ? '' : 'pri'}" ${x.alvo}>${x.acao}</button>`) : ''}
+          ${x.a ? `<a class="ra-b" href="#/v/${S.tripId}/a/${x.a.id}">Ver atividade</a>` : ''}
+          ${x.pre && b.isOwner ? `<button class="ra-b ${x.feito ? 'ok' : ''}" data-act="pre-feito" data-id="${x.pre.id}">${x.feito ? '✓ Feita' : 'Marcar como feita'}</button>` : ''}
+          ${x.pre && b.isOwner && !x.feito ? `<button class="ra-b" data-act="novo-lembrete" data-campo="prebooking_id" data-id="${x.pre.id}">${I.sino}Lembrete</button>` : ''}
+          ${lembr.map((r) => `<span class="lb">${I.sino}${offsetTxt(r.offset_minutes)}<button data-act="apagar-lembrete" data-id="${r.id}" aria-label="Apagar">✕</button></span>`).join('')}</div></div></li>`; };
+  let ult = ''; const linhas = porFazer.map((x) => { const g = grupo(x); const cab = g !== ult ? `<li class="ra-mes">${g}</li>` : ''; ult = g; return cab + cartao(x); }).join('');
+  const prox = porFazer.find((x) => x.quando && x.quando > hoje);
+  render(`<main class="pag com-nav ra-pag"><header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>Reservas antecipadas</h1><p>${esc(b.trip.title)}</p></div></header>
+    <section class="ra-topo"><div class="ra-num"><b>${feitos.length}</b><span>de ${total} feitas</span></div><div class="ra-bar"><i style="width:${pct}%"></i></div>
+      <p>${porFazer.length ? `${porFazer.filter((x) => !x.quando || x.quando <= hoje).length} para tratar já${prox ? ` · a seguir: <b>${esc(prox.titulo)}</b> (${dataCurta(prox.quando)})` : ''}` : 'Está tudo reservado.'}</p></section>
+    <div class="ra-sep por"><span>!</span><h2>Por fazer</h2><small>${porFazer.length}</small></div>
+    <ol class="ra-lista">${linhas || '<li class="vazio">Nada por reservar.</li>'}</ol>
+    ${info.length ? `<h2 class="sec ra-info-t">Não é preciso reservar</h2><ul class="ra-info">${info.map((x) => `<li><strong>${esc(x.titulo)}</strong>${x.nota ? `<span>${esc(x.nota)}</span>` : ''}</li>`).join('')}</ul>` : ''}
+    <section class="ra-feitas"><div class="ra-sep"><span>${I.check || '✓'}</span><h2>Já feitas</h2><small>${feitos.length}</small></div>
+      ${feitos.length ? `<ol class="ra-lista">${feitos.map(cartao).join('')}</ol>` : '<p class="ra-vz">Ainda não há reservas feitas. Quando marcares uma como feita, ou registares um hotel ou um voo pago, aparece aqui.</p>'}</section>
     ${nav('mais')}</main>`);
 }
 
@@ -909,9 +1146,13 @@ function vSecao(id) {
 
 function vParticipantes() {
   const b = S.b;
-  render(`<main class="pag com-nav"><header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>Participantes</h1><p>Quem vê esta viagem</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="convidar">${I.mais} Convidar</button>` : ''}</header>
-    <ul class="pessoas">${b.members.map((m) => `<li><span class="av">${esc((m.display_name || '?')[0].toUpperCase())}</span><span><strong>${esc(m.display_name)}</strong><small>${m.role === 'owner' ? 'Organiza e edita' : m.user_id ? 'Consulta' : 'Convite enviado'}${b.isOwner && m.email ? ' · ' + esc(m.email) : ''}</small></span>
+  const estado = (m) => m.role === 'owner' ? 'Organiza e edita' : m.user_id ? 'Consulta na app' : m.email ? 'Convite enviado' : 'Viaja · sem acesso à app';
+  render(`<main class="pag com-nav"><header class="cab-pag"><a class="b-ic" href="#/v/${S.tripId}/mais" aria-label="Voltar">${I.voltar}</a><div><h1>Participantes</h1><p>Quem viaja e quem vê a viagem</p></div>${b.isOwner ? `<button class="b-pri b-peq" data-act="convidar">${I.mais} Convidar</button>` : ''}</header>
+    <ul class="pessoas">${b.members.map((m) => `<li><span class="av">${esc((m.display_name || '?')[0].toUpperCase())}</span><span class="pp-n"><strong>${esc(m.display_name)}</strong><small>${estado(m)}</small></span>
+      ${b.isOwner ? (m.ficha_id ? `<a class="pp-ficha" href="#/v/${S.tripId}/ficha/${m.ficha_id}">${I.cadeado}Ficha</a>` : `<button class="pp-ficha nova" data-act="ficha-membro" data-id="${m.id}">${I.mais}Ficha</button>`) : ''}
       ${b.isOwner && m.role !== 'owner' ? `<button class="b-link" data-act="remover-membro" data-id="${m.id}">Remover</button>` : ''}</li>`).join('')}</ul>
+    ${b.isOwner ? `<button class="b-sec b-larga" data-act="viajante-novo">${I.mais} Acrescentar viajante (sem acesso à app)</button>
+      <p class="meta pp-nota">${I.cadeado} As fichas (documentos, contactos e emergência) só abrem para ti, depois de confirmares a tua palavra-passe.</p>` : ''}
     ${nav('mais')}</main>`);
 }
 
@@ -935,7 +1176,7 @@ function imprimir(dias, hoteis, extra) {
       <table>${lista.map((a) => `<tr><td>${hhmm(a.start_time)}</td><td><strong>${esc(a.title)}</strong>${rk.map[a.ext_key] ? ` (${rk.map[a.ext_key]} em ${rk.total})` : ''}${a.short ? ' · ' + esc(a.short) : ''}${a.description ? `<br>${esc(a.description)}` : ''}${(a.meal_options || []).length ? `<br>Opções: ${a.meal_options.map((m) => esc(m.name)).join(', ')}` : ''}${(a.tips || []).map((t) => `<br>• ${esc(t)}`).join('')}</td><td>${dur(a.duration_min)}</td></tr>`).join('')}</table>
       ${d.rain_alt ? `<p><strong>Se chover:</strong> ${esc(d.rain_alt)}</p>` : ''}</section>`; }).join('')}
     ${hoteis ? `<section><h2>Hotéis</h2>${b.hotels.map((h) => `<p><strong>${esc(h.name)}</strong> · ${dataCurta(h.check_in)} → ${dataCurta(h.check_out)}${h.address ? ' · ' + esc(h.address) : ''}${h.booking_code ? ' · Reserva ' + esc(h.booking_code) : ''}</p>`).join('') || '<p>—</p>'}
-      <h2>Transportes reservados</h2>${b.bookings.map((x) => `<p><strong>${KIND_LABEL[x.kind]}</strong> · ${dataCurta(x.depart_date)} ${hhmm(x.depart_time)} · ${esc(x.from_place || '')} → ${esc(x.to_place || '')}${x.booking_code ? ' · Reserva ' + esc(x.booking_code) : ''}</p>`).join('') || '<p>—</p>'}</section>` : ''}
+      <h2>Transportes reservados</h2>${b.bookings.filter((x) => x.kind !== 'activity').map((x) => `<p><strong>${KIND_LABEL[x.kind]}</strong> · ${dataCurta(x.depart_date)} ${hhmm(x.depart_time)} · ${esc(x.from_place || '')} → ${esc(x.to_place || '')}${x.booking_code ? ' · Reserva ' + esc(x.booking_code) : ''}</p>`).join('') || '<p>—</p>'}</section>` : ''}
     ${extra ? `<section><h2>Ranking</h2><ol>${b.rankingItems.filter((i) => i.ranking_id === rk.r?.id).map((i) => `<li>${esc(i.title)}${i.note ? ' · ' + esc(i.note) : ''}</li>`).join('')}</ol>
       ${b.sections.map((s) => `<h2>${esc(s.title)}</h2>${s.content.map((c) => `<p>${c.t ? `<strong>${esc(c.t)}</strong> · ` : ''}${esc(c.d || c.v || '')}</p>`).join('')}`).join('')}
       <h2>Checklist</h2><ul>${b.checklist.map((c) => `<li>${c.done ? '☑' : '☐'} ${esc(c.title)}</li>`).join('')}</ul></section>` : ''}</div>`;
@@ -952,15 +1193,15 @@ function vInstalar() {
 // ---------- formulários ----------
 const REGIMES = [['', '—'], ['so_alojamento', 'Só alojamento'], ['pequeno_almoco', 'Pequeno-almoço'], ['meia_pensao', 'Meia pensão'], ['pensao_completa', 'Pensão completa'], ['tudo_incluido', 'Tudo incluído']];
 const regimeTxt = (k) => REGIMES.find(([v]) => v === k)?.[1] || '';
-const dinheiro = (v, moeda = 'EUR') => v == null || v === '' ? '' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: moeda || 'EUR' }).format(Number(v));
+const dinheiro = (v, moeda = 'EUR') => v == null || v === '' ? '' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: moeda || 'EUR', currencyDisplay: 'narrowSymbol' }).format(Number(v));
 // ---------- moeda local e câmbio (definido por viagem em Mais → Moeda e câmbio) ----------
 const MOEDAS = [['EUR', 'Euro (€)'], ['JPY', 'Iene japonês (¥)'], ['GBP', 'Libra (£)'], ['USD', 'Dólar americano ($)'], ['CHF', 'Franco suíço'], ['CZK', 'Coroa checa'], ['DKK', 'Coroa dinamarquesa'], ['SEK', 'Coroa sueca'], ['NOK', 'Coroa norueguesa'], ['PLN', 'Zlóti polaco'], ['HUF', 'Forint húngaro'], ['TRY', 'Lira turca'], ['CAD', 'Dólar canadiano'], ['AUD', 'Dólar australiano'], ['BRL', 'Real brasileiro'], ['MXN', 'Peso mexicano'], ['THB', 'Baht tailandês'], ['CNY', 'Yuan chinês'], ['KRW', 'Won sul-coreano'], ['INR', 'Rupia indiana'], ['ZAR', 'Rand sul-africano'], ['MAD', 'Dirham marroquino'], ['ISK', 'Coroa islandesa']];
 const moedasForm = (atual) => { const loc = S.b?.trip?.local_currency; const base = MOEDAS.filter(([k]) => ['EUR', loc, atual].includes(k));
   return [...base, ...MOEDAS.filter((m) => !base.includes(m))]; };
 const cambio = () => { const t = S.b?.trip; const c = t?.info?.cambio; const loc = t?.local_currency;
-  if (!c?.ativo || !loc || loc === 'EUR') return null;
-  let taxa = Number(c.taxa) || null;
-  try { const m = JSON.parse(localStorage.getItem('cambio:' + loc) || 'null'); if (c.auto && m?.taxa) taxa = m.taxa; } catch {}
+  if (!loc || loc === 'EUR') return null;
+  let taxa = Number(c?.taxa) || null;
+  try { const m = JSON.parse(localStorage.getItem('cambio:' + loc) || 'null'); if (c?.auto !== false && m?.taxa) taxa = m.taxa; } catch {}
   return taxa ? { loc, taxa } : null; };
 // converte entre euros e a moeda local da viagem; devolve o texto "≈ …" ou ''
 function convTxt(v, moeda) {
@@ -970,30 +1211,39 @@ function convTxt(v, moeda) {
   if (m === c.loc) return '≈ ' + dinheiro(Number(v) / c.taxa, 'EUR');
   return '';
 }
+// campo de valor: sempre em euros; se a viagem tiver outra moeda, ao lado um campo na moeda local ligado ao de euros
+const campoValor = (n, l, v) => { const c = cambio(); const eur = campo(n, l + (c ? ' (€)' : ''), v ?? '', 'number', 'step="0.01" min="0" inputmode="decimal"');
+  return c ? `<div class="duas val-par">${eur}<label class="campo"><span>${l} (${c.loc})</span><input type="number" min="0" step="any" inputmode="decimal" data-loc-for="${n}"></label></div>` : eur; };
+function ligarMoeda(raiz) {
+  const c = cambio(); if (!c) return; const casas = ['JPY', 'KRW', 'HUF', 'ISK'].includes(c.loc) ? 0 : 2;
+  raiz.querySelectorAll('[data-loc-for]').forEach((loc) => { const eur = raiz.querySelector(`[name="${loc.dataset.locFor}"]`); if (!eur) return;
+    const deEur = () => { loc.value = eur.value === '' ? '' : (Number(eur.value) * c.taxa).toFixed(casas); };
+    deEur(); eur.addEventListener('input', (e) => { if (e.isTrusted) deEur(); });
+    loc.addEventListener('input', () => { eur.value = loc.value === '' ? '' : (Number(loc.value) / c.taxa).toFixed(2); eur.dispatchEvent(new Event('input', { bubbles: true })); }); });
+}
 // para os detalhes: valor na moeda em que foi registado e, por baixo, o convertido
 const dinheiroD = (v, moeda) => { const t = dinheiro(v, moeda); const c = convTxt(v, moeda); return t && c ? `${t}<small class="conv">${c}</small>` : t; };
 async function atualizarCambio() {
   const t = S.b?.trip; const c = t?.info?.cambio; const loc = t?.local_currency;
-  if (!c?.ativo || !c.auto || !loc || loc === 'EUR') return;
+  if (c?.auto === false || !loc || loc === 'EUR') return;
   const hoje = new Date().toISOString().slice(0, 10);
   try { const m = JSON.parse(localStorage.getItem('cambio:' + loc) || 'null'); if (m?.data === hoje) return; } catch {}
   try {
     const r = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${loc}`); const j = await r.json(); const taxa = j?.rates?.[loc];
     if (!taxa) return;
     try { localStorage.setItem('cambio:' + loc, JSON.stringify({ taxa, data: hoje })); } catch {}
-    if (S.b.isOwner && Number(c.taxa) !== taxa) { const info = { ...t.info, cambio: { ...c, taxa, data: j.date || hoje } }; await sb.from('trips').update({ info }).eq('id', t.id); t.info = info; }
+    if (S.b.isOwner && Number(c?.taxa) !== taxa) { const info = { ...(t.info || {}), cambio: { ...(c || {}), auto: true, taxa, data: j.date || hoje } }; await sb.from('trips').update({ info }).eq('id', t.id); t.info = info; }
   } catch { /* sem rede: fica a última taxa guardada */ }
 }
 function fCambio() {
   const t = S.b.trip; const c = t.info?.cambio || {};
-  folha('Moeda e câmbio',
-    `<p class="meta">Para viagens fora da zona euro. Os valores ficam na moeda em que os registas e, nos detalhes, aparece também o valor convertido (euros ↔ moeda local).</p>`
+  folha('Moeda do país',
+    `<p class="meta">A app trabalha sempre em euros. Se a moeda do país for outra, nos hotéis, transportes e atrações podes escrever o preço em euros ou na moeda local (o outro valor é calculado) e vês os dois valores lado a lado.</p>`
     + escolha('local_currency', 'Moeda do país', MOEDAS, t.local_currency || 'EUR')
-    + `<label class="campo campo-chk"><input type="checkbox" name="ativo" ${c.ativo ? 'checked' : ''}><span>Mostrar valores convertidos</span></label>`
     + escolha('auto', 'Taxa de câmbio', [['1', 'Automática (Banco Central Europeu, atualizada todos os dias)'], ['0', 'Manual']], c.auto === false ? '0' : '1')
     + campo('taxa', '1 € vale (na moeda do país)', c.taxa ?? '', 'number', 'step="0.0001" min="0" inputmode="decimal"')
-    + (c.data ? `<p class="meta">Última taxa: ${c.taxa} · ${dataCurta(c.data)}</p>` : ''),
-  async (f) => { const info = { ...(t.info || {}), cambio: { ativo: f.ativo === 'on', auto: f.auto === '1', taxa: f.taxa === '' ? null : Number(f.taxa), data: c.data || null } };
+    + (c.data && c.taxa ? `<p class="meta">Última taxa: 1 € = ${c.taxa} · ${dataCurta(c.data)}</p>` : ''),
+  async (f) => { const info = { ...(t.info || {}), cambio: { auto: f.auto === '1', taxa: f.taxa === '' ? null : Number(f.taxa), data: c.data || null } };
     await op(sb.from('trips').update({ local_currency: f.local_currency, info }).eq('id', t.id), 'Moeda guardada.');
     try { localStorage.removeItem('cambio:' + f.local_currency); } catch {} atualizarCambio().then(() => router()); });
 }
@@ -1008,15 +1258,14 @@ function fHotel(id, pre = {}) {
     + `<div class="duas">${campo('check_in', 'Check-in', h.check_in, 'date', 'required')}${campo('check_out', 'Check-out', h.check_out, 'date', 'required')}</div>`
     + `<div class="duas">${campo('check_in_time', 'Hora check-in', h.check_in_time, 'time')}${campo('check_out_time', 'Hora check-out', h.check_out_time, 'time')}</div>`
     + `<div class="duas">${escolha('board', 'Regime', REGIMES, h.board || '')}${campo('rooms', 'N.º de quartos', h.rooms ?? 1, 'number', 'min="1" step="1" required')}</div>`
-    + `<div class="duas">${campo('total_price', 'Valor total', h.total_price ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')}${escolha('currency', 'Moeda', moedasForm(h.currency), h.currency || 'EUR')}</div>`
-    + campo('deposit', 'Sinal pago', h.deposit ?? '', 'number', 'min="0" step="0.01" inputmode="decimal"')
+    + campoValor('total_price', 'Valor total', h.total_price) + campoValor('deposit', 'Sinal pago', h.deposit)
     + '<div class="calculo" id="calc-noite" aria-live="polite"></div>'
     + `<div class="duas">${campo('payment_date', 'Data de pagamento', h.payment_date, 'date')}${campo('cancel_by', 'Cancelamento grátis até', h.cancel_by, 'date')}</div>`
     + campo('agency', 'Agência / plataforma', h.agency, 'text', 'placeholder="Ex.: Booking, direto no hotel"')
     + escolha('status', 'Estado da reserva', [['reservado', 'Reservado, pagamento por fazer'], ['pago', 'Pago (conta nos dias da viagem)'], ['cancelado', 'Cancelado']], h.status || 'reservado')
     + `<div class="duas">${campo('booking_code', 'Código de reserva', h.booking_code)}${campo('phone', 'Telefone', h.phone, 'tel')}</div>` + area('notes', 'Notas', h.notes)
     + (id ? '<button type="button" class="b-perigo" data-apagar>Apagar hotel</button>' : ''),
-  async (f) => { f.trip_id = S.tripId;
+  async (f) => { f.trip_id = S.tripId; f.currency = 'EUR';
     { const ant = S.b.hotels.find((x) => x.id === id);
       if (f.address && (!ant || ant.address !== f.address || ant.city !== f.city || ant.lat == null)) { const g = await geocodificar([f.address, f.city].filter(Boolean).join(', ')) || await geocodificar([f.name, f.city].filter(Boolean).join(', ')); f.lat = g?.lat ?? null; f.lng = g?.lng ?? null; }
       else if (!f.address && (!ant || ant.lat == null)) { const g = f.name ? await geocodificar([f.name, f.city].filter(Boolean).join(', ')) : null; f.lat = g?.lat ?? null; f.lng = g?.lng ?? null; } }
@@ -1033,8 +1282,8 @@ function fHotel(id, pre = {}) {
   const form = document.querySelector('.folha form'); const out = document.getElementById('calc-noite');
   const calc = () => { const v = Object.fromEntries(new FormData(form)); const p = porNoiteQuarto(v); const n = v.check_in && v.check_out ? noites(v.check_in, v.check_out) : 0;
     const fp = faltaPagar(v);
-    out.innerHTML = (p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiroD(p, v.currency)}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>')
-      + (fp != null ? `<span class="calc-l2">${v.status === 'pago' ? 'Pago na totalidade' : 'Falta pagar'}</span><strong class="calc-l2">${dinheiroD(fp, v.currency)}</strong>` : ''); };
+    out.innerHTML = (p != null ? `<span>Valor por noite e por quarto</span><strong>${dinheiroD(p, 'EUR')}</strong><small>${n} noite${n === 1 ? '' : 's'} × ${Number(v.rooms) || 1} quarto${Number(v.rooms) > 1 ? 's' : ''}</small>` : '<span>Valor por noite e por quarto</span><small>Preenche as datas, os quartos e o valor total.</small>')
+      + (fp != null ? `<span class="calc-l2">${v.status === 'pago' ? 'Pago na totalidade' : 'Falta pagar'}</span><strong class="calc-l2">${dinheiroD(fp, 'EUR')}</strong>` : ''); };
   form.addEventListener('input', calc); calc();
   ligarDatas(form, 'check_in', 'check_out', 1);
   ligarApagar('hotels', id, 'Apagar este hotel?');
@@ -1045,8 +1294,8 @@ function fReserva(id) {
     + `<div class="duas">${campo('from_place', 'De', x.from_place, 'text', 'required')}${campo('to_place', 'Para', x.to_place, 'text', 'required')}</div>`
     + `<div class="duas">${campo('depart_date', 'Data de partida', x.depart_date, 'date', 'required')}${campo('depart_time', 'Hora', x.depart_time, 'time')}</div>`
     + `<div class="duas">${campo('arrive_date', 'Data de chegada', x.arrive_date, 'date')}${campo('arrive_time', 'Hora', x.arrive_time, 'time')}</div>`
-    + `<div class="duas">${campo('carrier', 'Companhia', x.carrier)}${campo('number', 'N.º (voo, comboio)', x.number)}</div>`
-    + campo('booking_code', 'Código de reserva', x.booking_code) + campo('seats', 'Lugares', x.seats) + area('notes', 'Notas', x.notes)
+    + `<div class="duas">${campo('carrier', 'Companhia aérea / empresa', x.carrier)}${campo('number', 'N.º (voo, comboio)', x.number)}</div>`
+    + `<div class="duas">${campo('booking_code', 'N.º de reserva', x.booking_code)}${campo('vendor', 'Empresa vendedora', x.vendor)}</div>` + area('notes', 'Notas', x.notes)
     + (id ? '<button type="button" class="b-perigo" data-apagar>Apagar reserva</button>' : ''),
   async (f) => { f.trip_id = S.tripId; if (!f.arrive_date) f.arrive_date = null; await op(id ? sb.from('bookings').update(f).eq('id', id) : sb.from('bookings').insert(f), 'Reserva guardada.'); });
   ligarDatas(document.querySelector('.folha form'), 'depart_date', 'arrive_date', 0);
@@ -1088,17 +1337,26 @@ function fLembrete(campoId, id) {
   async (f) => op(sb.from('reminders').insert({ trip_id: S.tripId, [campoId]: id, offset_minutes: Number(f.offset_minutes), audience: campoId === 'prebooking_id' ? 'owner' : f.audience }), 'Lembrete guardado.'));
 }
 function fMembroDoc(campoId, id) {
-  folha('Bilhete ou documento', escolha('member_id', 'De quem', [['', 'Do grupo (sem pessoa)'], ...pessoas().map((m) => [m.id, m.display_name])], '')
-    + campo('label', 'Descrição (opcional)', '') + '<label class="campo"><span>Ficheiro</span><input type="file" name="ficheiro" accept="image/*,application/pdf" required></label>',
+  folha('Juntar documento', escolha('doc_type', 'Tipo de documento', TIPOS_DOC, 'bilhete')
+    + campo('label', 'Nome', '', 'text', 'placeholder="ex.: Fatura do hotel, Bilhete do Miguel"')
+    + escolha('member_id', 'De quem', [['', 'Do grupo (sem pessoa)'], ...pessoas().map((m) => [m.id, m.display_name])], '')
+    + '<label class="campo"><span>Ficheiro</span><input type="file" name="ficheiro" accept="image/*,application/pdf" required></label>',
   async () => {
     const form = document.querySelector('.folha form'); const fd = new FormData(form); const file = fd.get('ficheiro');
-    await guardarBilhete(file, { [campoId]: id, member_id: fd.get('member_id') || null, label: fd.get('label') || null });
+    const nome = (fd.get('label') || '').trim() || (file?.name || '').replace(/\.[^.]+$/, '');
+    await guardarBilhete(file, { [campoId]: id, member_id: fd.get('member_id') || null, label: nome || null, doc_type: fd.get('doc_type') || 'bilhete' });
   });
+}
+function fEditarDoc(id) {
+  const t = S.b.tickets.find((x) => x.id === id); if (!t) return;
+  folha('Documento', escolha('doc_type', 'Tipo de documento', TIPOS_DOC, t.doc_type || 'bilhete') + campo('label', 'Nome', t.label || '')
+    + escolha('member_id', 'De quem', [['', 'Do grupo (sem pessoa)'], ...pessoas().map((m) => [m.id, m.display_name])], t.member_id || ''),
+  async (v) => op(sb.from('tickets').update({ doc_type: v.doc_type, label: v.label.trim() || null, member_id: v.member_id || null }).eq('id', id), 'Documento guardado.'));
 }
 async function guardarBilhete(file, extra) {
   const f = file.type.startsWith('image/') ? await comprimir(file, 2000, 0.9) : file;
   const path = await enviarFicheiro('tickets', S.tripId, f, 'bilhetes');
-  await op(sb.from('tickets').insert({ trip_id: S.tripId, path, mime: f.type, ...extra }), 'Bilhete guardado.');
+  await op(sb.from('tickets').insert({ trip_id: S.tripId, path, mime: f.type, ...extra }), 'Documento guardado.');
 }
 function fConvidar() {
   folha('Convidar participante', campo('display_name', 'Nome', '', 'text', 'required') + campo('email', 'Email', '', 'email', 'required')
@@ -1235,6 +1493,27 @@ document.addEventListener('click', async (e) => {
       return op(sb.from('hotels').update({ status: 'cancelado' }).eq('id', id), 'Reserva marcada como cancelada.'); }
     if (a === 'reserva') return fReserva(id);
     if (a === 'ficha-transporte') return fichaTransporte(id);
+    if (a === 'preco-ativ') return fichaPreco(id);
+    if (a === 'ficha-editar') return fFicha(id);
+    if (a === 'ficha-membro') { // criar a ficha de um participante: pede a palavra-passe antes, se preciso
+      const m = S.b.members.find((x) => x.id === id);
+      const criar = () => folha('Nova ficha · ' + m.display_name, campo('nome', 'Nome completo', '', 'text', 'required'), async (v) => {
+        const r = await sb.from('fichas_pessoais').insert({ nome: v.nome.trim(), ordem: 99 }).select('id').single(); if (r.error || !r.data) throw new Error('Não foi possível criar a ficha.');
+        await sb.from('trip_members').update({ ficha_id: r.data.id }).eq('id', m.id); m.ficha_id = r.data.id; location.hash = `#/v/${S.tripId}/ficha/${r.data.id}`; });
+      if (Date.now() > FICHAS_ATE) { location.hash = `#/v/${S.tripId}/fichas`; toast('Desbloqueia primeiro com a tua palavra-passe.'); return; }
+      return criar(); }
+    if (a === 'viajante-novo') return folha('Acrescentar viajante', '<p class="meta">Para quem viaja mas não vai usar a app. Conta para os bilhetes de cada pessoa e pode ter ficha.</p>' + campo('display_name', 'Nome (como aparece na app)', '', 'text', 'required'),
+      async (v) => op(sb.from('trip_members').insert({ trip_id: S.tripId, display_name: v.display_name.trim(), role: 'viewer', sort_order: S.b.members.length + 1 }), 'Viajante acrescentado.'));
+    if (a === 'dois-passos') return fDoisPassos();
+    if (a === 'mudar-pw') return folha('Mudar palavra-passe', '<p class="meta">É a palavra-passe com que entras na app e que desbloqueia as fichas dos viajantes.</p>' + campo('p1', 'Nova palavra-passe', '', 'password', 'required minlength="8" autocomplete="new-password"') + campo('p2', 'Repetir a nova palavra-passe', '', 'password', 'required minlength="8" autocomplete="new-password"'),
+      async (v) => { if (v.p1 !== v.p2) throw new Error('As palavras-passe não são iguais.'); const { error } = await sb.auth.updateUser({ password: v.p1 }); if (error) throw new Error(error.message || 'Não foi possível mudar.'); toast('Palavra-passe mudada.'); });
+    if (a === 'fichas-ver') { FICHAS_VER = !FICHAS_VER; return vFichas(); }
+    if (a === 'fichas-bloquear') { FICHAS_ATE = 0; FICHAS_VER = false; S.fichas = []; return vFichas(); }
+    if (a === 'copiar') { try { await navigator.clipboard.writeText(el.dataset.v); toast('Copiado.'); } catch { toast('Não foi possível copiar.'); } return; }
+    if (a === 'estado-viagem') { const t = S.b.trip; const nova = viagemAtiva(t) ? 'inativa' : 'ativa';
+      if (nova === 'inativa' && !confirm('Marcar esta viagem como inativa? Passa para "Viagens inativas" na lista de viagens.')) return;
+      const info = { ...(t.info || {}), estado: nova }; return op(sb.from('trips').update({ info }).eq('id', t.id), nova === 'ativa' ? 'Viagem marcada como ativa.' : 'Viagem marcada como inativa.'); }
+    if (a === 'sobre-dia') { const box = document.querySelector('.sobre-dia'); if (box) { box.hidden = !box.hidden; el.setAttribute('aria-expanded', String(!box.hidden)); el.classList.toggle('on', !box.hidden); } return; }
     if (a === 'cambio') return fCambio();
     if (a === 'ver-fotos-dia') { if (e.target.closest('.foto-add, .credito')) return; const d = S.b.days.find((x) => x.id === id); return verFotos(await fotosDoDiaTodas(d), 0, `Dia ${d.day_number} · ${d.city || ''}`); }
     if (a === 'ver-fotos-ativ') { if (e.target.closest('.credito')) return; const at = S.b.activities.find((x) => x.id === id);
@@ -1244,6 +1523,9 @@ document.addEventListener('click', async (e) => {
     if (a === 'mapa-dia') { const g = S.mapa?.grupos?.[el.dataset.n]; if (!g) return; const on = el.getAttribute('aria-pressed') === 'true';
       el.setAttribute('aria-pressed', String(!on)); el.classList.toggle('on', !on); if (on) S.mapa.mapa.removeLayer(g); else g.addTo(S.mapa.mapa); return; }
     if (a === 'escolher-membro') return fMembroDoc(el.dataset.campo, id);
+    if (a === 'editar-doc') return fEditarDoc(id);
+    if (a === 'pre-feito') { const p = S.b.prebookings.find((x) => x.id === id); return op(sb.from('prebookings').update({ done: !p.done, done_at: !p.done ? new Date().toISOString() : null }).eq('id', id), !p.done ? 'Marcada como feita.' : 'Marcada como por fazer.'); }
+    if (a === 'hotel-reservar') return fHotel(null, { check_in: el.dataset.ini, check_out: el.dataset.fim, city: el.dataset.cidade });
     if (a === 'convidar') return fConvidar();
     if (a === 'remover-membro') { if (!confirm('Remover esta pessoa da viagem?')) return; return op(sb.from('trip_members').delete().eq('id', id), 'Removido.'); }
     if (a === 'offline') { toast('A guardar bilhetes…'); const n = await guardarBilhetesOffline(S.b.tickets); return toast(`${n} bilhete${n === 1 ? '' : 's'} guardado${n === 1 ? '' : 's'} neste telemóvel.`); }
@@ -1286,7 +1568,7 @@ async function router() {
     a: () => { const at = S.b.activities.find((x) => x.id === parts[3]); const d = at && S.b.days.find((x) => x.id === at.day_id);
       if (at && parts[4] === 'r') return ehPC() ? vRanking(parts[5], at.ext_key) : vAtividade(parts[3], false, parts[6] === 'resumo' ? `#/v/${id}/resumo` : `#/v/${id}/ranking/${parts[5]}/${at.ext_key}`);
       return ehPC() && d ? vDia(d.day_number, at.id) : vAtividade(parts[3]); }, resumo: vResumo, hoteis: vHoteis, transportes: vTransportes, mais: vMais,
-    mapa: () => vMapa(parts[3]), tempo: () => vTempo(parts[3], parts[4]), reservas: vReservas, checklist: vChecklist, ranking: () => parts[3] ? vRanking(parts[3], parts[4]) : vRankings(), secao: () => vSecao(parts[3]), participantes: vParticipantes, exportar: vExportar,
+    mapa: () => vMapa(parts[3]), fichas: () => vFichas(), ficha: () => vFichas(parts[3]), definicoes: () => vDefinicoes(), cidades: () => vCidades(), tempo: () => vTempo(parts[3], parts[4]), reservas: vReservas, checklist: vChecklist, ranking: () => parts[3] ? vRanking(parts[3], parts[4]) : vRankings(), secao: () => vSecao(parts[3]), participantes: vParticipantes, exportar: vExportar,
   };
   return (m[v] || vResumo)();
 }
@@ -1295,7 +1577,7 @@ async function router() {
   let aberta = false; try { aberta = !!sessionStorage.getItem('app-aberta'); sessionStorage.setItem('app-aberta', '1'); } catch {}
   if (!aberta && /^#\/v\//.test(location.hash)) { try { history.replaceState(null, '', location.pathname + location.search + '#/'); } catch { location.hash = '#/'; } }
 })();
-window.addEventListener('hashchange', router);
+window.addEventListener('hashchange', () => { if (!/\/fichas?(\/|$)/.test(location.hash)) { S.fichas = []; FICHAS_VER = false; } router(); });
 matchMedia('(min-width: 1000px)').addEventListener('change', () => router());
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => router());
 sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') vLogin('nova'); });
